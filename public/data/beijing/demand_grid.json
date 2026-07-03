@@ -1,0 +1,17 @@
+{
+  "bbox": {
+    "lngMin": 116.0,
+    "latMin": 39.46,
+    "lngMax": 116.8,
+    "latMax": 40.22
+  },
+  "width": 512,
+  "height": 512,
+  "dtype": "uint16",
+  "order": "row-major, row 0 = north",
+  "kind": "population",
+  "totalPopulation": 25529923,
+  "maxCell": 4668,
+  "source": "WorldPop chn_ppp_2020 (100m, unconstrained), windowed read",
+  "generated": "2026-07-03"
+}

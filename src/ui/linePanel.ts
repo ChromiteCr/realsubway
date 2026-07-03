@@ -1,18 +1,23 @@
 import type { Network } from "../model/network";
 import { exportToFile, importFromFile } from "../persist/storage";
 import { Network as NetworkClass } from "../model/network";
+import type { RidershipModel } from "../sim/ridership";
 import type { EditorState } from "./editorState";
+import { fmtRiders } from "./format";
 
 interface PanelCallbacks {
   /** 导入存档后用新 Network 实例重建应用 */
   onImport: (net: NetworkClass) => void;
+  /** 切换需求热力图;返回切换后的可见性,不可用时为 null */
+  onToggleHeat: (() => boolean) | null;
 }
 
-/** 侧栏:线路列表 + 新建/编辑/删除 + 导入导出 */
+/** 侧栏:全网指标 + 线路列表 + 新建/编辑/删除 + 导入导出 */
 export function createLinePanel(
   container: HTMLElement,
   network: Network,
   editor: EditorState,
+  ridership: RidershipModel,
   callbacks: PanelCallbacks,
 ): void {
   const render = () => {
@@ -23,7 +28,12 @@ export function createLinePanel(
     h1.textContent = "realsubway";
     const p = document.createElement("p");
     p.textContent = "北京 · 画出你的地铁线网";
-    header.append(h1, p);
+    const stats = document.createElement("div");
+    stats.className = "stats-line";
+    stats.textContent = ridership.hasData
+      ? `全网日客流 ≈ ${fmtRiders(ridership.total())}`
+      : "全网日客流:暂无数据";
+    header.append(h1, p, stats);
     container.appendChild(header);
 
     if (editor.editingLineId) {
@@ -124,10 +134,22 @@ export function createLinePanel(
     });
 
     actions.append(newBtn, exportBtn, importBtn);
+
+    if (callbacks.onToggleHeat) {
+      const heatBtn = document.createElement("button");
+      heatBtn.textContent = "热力图";
+      heatBtn.addEventListener("click", () => {
+        const on = callbacks.onToggleHeat!();
+        heatBtn.classList.toggle("primary", on);
+      });
+      actions.appendChild(heatBtn);
+    }
+
     container.appendChild(actions);
   };
 
   network.subscribe(render);
   editor.subscribe(render);
+  ridership.subscribe(render);
   render();
 }

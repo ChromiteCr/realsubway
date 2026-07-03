@@ -1,0 +1,26 @@
+{
+  "bbox": {
+    "lngMin": 116.0,
+    "latMin": 39.46,
+    "lngMax": 116.8,
+    "latMax": 40.22
+  },
+  "width": 512,
+  "height": 512,
+  "dtype": "uint16",
+  "order": "row-major, row 0 = north",
+  "kind": "attraction",
+  "scale": 0.00022417051079386921,
+  "totalWeight": 36518,
+  "poiCounts": {
+    "office": 1679,
+    "commercial_building": 2773,
+    "shop": 4519,
+    "food": 5426,
+    "education": 2160,
+    "health": 499,
+    "industrial": 2116
+  },
+  "source": "OSM via Overpass, POI 类别加权直方图 + 高斯平滑",
+  "generated": "2026-07-03"
+}

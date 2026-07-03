@@ -1,8 +1,11 @@
 import type { Network } from "../model/network";
+import type { RidershipModel } from "../sim/ridership";
+import { fmtRiders } from "./format";
 
-/** 车站弹窗内容:改名输入框 + 经停线路徽章 + 删除按钮 */
+/** 车站弹窗内容:改名输入框 + 客流 + 经停线路徽章 + 删除按钮 */
 export function buildStationPopup(
   network: Network,
+  ridership: RidershipModel,
   stationId: string,
   onClose: () => void,
 ): HTMLElement {
@@ -18,6 +21,13 @@ export function buildStationPopup(
     network.renameStation(stationId, nameInput.value.trim() || station.name);
   });
   root.appendChild(nameInput);
+
+  const riders = document.createElement("div");
+  riders.className = "riders-line";
+  riders.textContent = ridership.hasData
+    ? `日客流 ≈ ${fmtRiders(ridership.ridersAt(stationId))}`
+    : "日客流:暂无数据(先运行数据管线)";
+  root.appendChild(riders);
 
   const badges = document.createElement("div");
   badges.className = "badges";
