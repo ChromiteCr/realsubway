@@ -1,6 +1,8 @@
 # realsubway
 
-北京地铁规划模拟游戏(纯前端,无服务器)。灵感来自 [Brand New Subway](https://jpwright.github.io/subway/) 与 [Subway Builder](https://www.subwaybuilder.com),目标是在真实北京地图上画线建站,模拟一个运营日的出行(首末班车、逐小时班次、A/B/C 车型编组),并以 **运输总量 / 经济利润 / 综合评分** 三参数评价线网。
+地铁规划模拟游戏。灵感来自 [Brand New Subway](https://jpwright.github.io/subway/) 与 [Subway Builder](https://www.subwaybuilder.com),目标是在真实地图上画线建站,模拟一个运营日的出行,并以 **运输总量 / 经济利润 / 综合评分** 三参数评价线网。
+
+目前版本限于北京地图，人口参数暂定来源于北京。随着版本更新会拓展到全国/全球数据
 
 ## 开发
 
