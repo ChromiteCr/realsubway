@@ -20,11 +20,13 @@ export function installHeatLayer(map: MlMap, grid: DataGrid): void {
 
   for (let i = 0; i < grid.data.length; i++) {
     const t = Math.min(1, grid.data[i]! / p99);
-    // 透明 → 黄 → 红
-    img.data[i * 4] = Math.round(255 * Math.min(1, t * 1.6));
-    img.data[i * 4 + 1] = Math.round(200 * (1 - t * t));
-    img.data[i * 4 + 2] = 40;
-    img.data[i * 4 + 3] = Math.round(210 * Math.sqrt(t));
+    // 低值必须全透明,否则整城蒙一层纱
+    if (t < 0.02) continue;
+    // 淡黄 (255,235,80) → 红 (200,20,20)
+    img.data[i * 4] = Math.round(255 - 55 * t);
+    img.data[i * 4 + 1] = Math.round(235 - 215 * t);
+    img.data[i * 4 + 2] = Math.round(80 - 60 * t);
+    img.data[i * 4 + 3] = Math.round(40 + 200 * t);
   }
   ctx.putImageData(img, 0, 0);
 
@@ -43,7 +45,7 @@ export function installHeatLayer(map: MlMap, grid: DataGrid): void {
       id: HEAT_LAYER,
       type: "raster",
       source: HEAT_SOURCE,
-      paint: { "raster-opacity": 0.55, "raster-resampling": "nearest" },
+      paint: { "raster-opacity": 0.65 },
       layout: { visibility: "none" },
     },
     LINES_EDIT_LAYER,
