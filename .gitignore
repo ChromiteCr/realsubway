@@ -1,0 +1,6 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+# 数据管线的大文件输入(栅格原始数据),产出的 .bin/.json 会提交
+tools/raw/

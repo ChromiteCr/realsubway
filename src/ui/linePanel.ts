@@ -1,0 +1,133 @@
+import type { Network } from "../model/network";
+import { exportToFile, importFromFile } from "../persist/storage";
+import { Network as NetworkClass } from "../model/network";
+import type { EditorState } from "./editorState";
+
+interface PanelCallbacks {
+  /** 导入存档后用新 Network 实例重建应用 */
+  onImport: (net: NetworkClass) => void;
+}
+
+/** 侧栏:线路列表 + 新建/编辑/删除 + 导入导出 */
+export function createLinePanel(
+  container: HTMLElement,
+  network: Network,
+  editor: EditorState,
+  callbacks: PanelCallbacks,
+): void {
+  const render = () => {
+    container.innerHTML = "";
+
+    const header = document.createElement("header");
+    const h1 = document.createElement("h1");
+    h1.textContent = "realsubway";
+    const p = document.createElement("p");
+    p.textContent = "北京 · 画出你的地铁线网";
+    header.append(h1, p);
+    container.appendChild(header);
+
+    if (editor.editingLineId) {
+      const hint = document.createElement("div");
+      hint.className = "editing-hint";
+      const line = network.getLine(editor.editingLineId);
+      hint.textContent = `正在铺设「${line?.name ?? ""}」:点击地图建站,点击已有车站并线`;
+      container.appendChild(hint);
+    }
+
+    const list = document.createElement("div");
+    list.className = "line-list";
+    container.appendChild(list);
+
+    if (network.lines.length === 0) {
+      const tip = document.createElement("div");
+      tip.className = "empty-tip";
+      tip.textContent = "还没有线路。点击下方「新建线路」,然后在地图上点击铺站。";
+      list.appendChild(tip);
+    }
+
+    for (const line of network.lines) {
+      const item = document.createElement("div");
+      item.className = "line-item" + (editor.editingLineId === line.id ? " editing" : "");
+
+      const dot = document.createElement("span");
+      dot.className = "line-dot";
+      dot.style.background = line.color;
+
+      const name = document.createElement("span");
+      name.className = "line-name";
+      name.textContent = line.name;
+      name.title = "双击改名";
+      name.addEventListener("dblclick", () => {
+        const next = prompt("线路名", line.name);
+        if (next?.trim()) network.renameLine(line.id, next.trim());
+      });
+
+      const count = document.createElement("span");
+      count.className = "station-count";
+      count.textContent = `${line.stationIds.length}站`;
+
+      const editBtn = document.createElement("button");
+      if (editor.editingLineId === line.id) {
+        editBtn.textContent = "完成";
+        editBtn.className = "primary";
+        editBtn.addEventListener("click", () => editor.setEditingLine(null));
+      } else {
+        editBtn.textContent = "铺设";
+        editBtn.addEventListener("click", () => editor.setEditingLine(line.id));
+      }
+
+      const delBtn = document.createElement("button");
+      delBtn.className = "danger";
+      delBtn.textContent = "删";
+      delBtn.addEventListener("click", () => {
+        if (!confirm(`删除「${line.name}」?车站会保留。`)) return;
+        if (editor.editingLineId === line.id) editor.setEditingLine(null);
+        network.deleteLine(line.id);
+      });
+
+      item.append(dot, name, count, editBtn, delBtn);
+      list.appendChild(item);
+    }
+
+    const actions = document.createElement("div");
+    actions.className = "panel-actions";
+
+    const newBtn = document.createElement("button");
+    newBtn.className = "primary";
+    newBtn.textContent = "+ 新建线路";
+    newBtn.addEventListener("click", () => {
+      const line = network.addLine();
+      editor.setEditingLine(line.id);
+    });
+
+    const exportBtn = document.createElement("button");
+    exportBtn.textContent = "导出";
+    exportBtn.addEventListener("click", () => exportToFile(network));
+
+    const importBtn = document.createElement("button");
+    importBtn.textContent = "导入";
+    importBtn.addEventListener("click", () => {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "application/json";
+      input.addEventListener("change", async () => {
+        const file = input.files?.[0];
+        if (!file) return;
+        try {
+          const data = await importFromFile(file);
+          callbacks.onImport(NetworkClass.fromJSON(data));
+        } catch (e) {
+          alert(`导入失败:${e instanceof Error ? e.message : e}`);
+        }
+      });
+      input.click();
+    });
+
+    actions.append(newBtn, exportBtn, importBtn);
+    container.appendChild(actions);
+  };
+
+  network.subscribe(render);
+  editor.subscribe(render);
+  render();
+}
