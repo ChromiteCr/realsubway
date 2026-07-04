@@ -29,7 +29,7 @@ export class DataGrid {
   }
 
   static async fetch(binUrl: string, metaUrl: string): Promise<DataGrid> {
-    const [binResp, metaResp] = await Promise.all([window.fetch(binUrl), window.fetch(metaUrl)]);
+    const [binResp, metaResp] = await Promise.all([fetch(binUrl), fetch(metaUrl)]);
     if (!binResp.ok || !metaResp.ok) {
       throw new Error(`栅格加载失败: ${binUrl} ${binResp.status} / ${metaUrl} ${metaResp.status}`);
     }

@@ -1,7 +1,7 @@
 import type { Network } from "../model/network";
 import { exportToFile, importFromFile } from "../persist/storage";
 import { Network as NetworkClass } from "../model/network";
-import type { RidershipModel } from "../sim/ridership";
+import type { SimClient } from "../sim/simClient";
 import type { EditorState } from "./editorState";
 import { fmtRiders } from "./format";
 
@@ -17,7 +17,7 @@ export function createLinePanel(
   container: HTMLElement,
   network: Network,
   editor: EditorState,
-  ridership: RidershipModel,
+  sim: SimClient,
   callbacks: PanelCallbacks,
 ): void {
   const render = () => {
@@ -30,9 +30,16 @@ export function createLinePanel(
     p.textContent = "北京 · 画出你的地铁线网";
     const stats = document.createElement("div");
     stats.className = "stats-line";
-    stats.textContent = ridership.hasData
-      ? `全网日客流 ≈ ${fmtRiders(ridership.total())}`
-      : "全网日客流:暂无数据";
+    if (!sim.hasData) {
+      stats.textContent = "日出行:暂无数据";
+    } else if (sim.state === "computing") {
+      stats.textContent = "日出行:计算中…";
+    } else {
+      stats.textContent = `日出行 ≈ ${fmtRiders(sim.total())}(${sim.computeMs.toFixed(0)}ms)`;
+      if (sim.unreachable() > 1000) {
+        stats.textContent += ` · 无法到达 ${fmtRiders(sim.unreachable())}`;
+      }
+    }
     header.append(h1, p, stats);
     container.appendChild(header);
 
@@ -150,6 +157,6 @@ export function createLinePanel(
 
   network.subscribe(render);
   editor.subscribe(render);
-  ridership.subscribe(render);
+  sim.subscribe(render);
   render();
 }

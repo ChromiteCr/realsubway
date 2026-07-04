@@ -11,10 +11,12 @@ import {
   setEditingLineHighlight,
   updateNetworkLayers,
 } from "./render/networkLayers";
+import type { Landmark } from "./sim/engine";
 import { DataGrid } from "./sim/grids";
-import { RidershipModel, type Landmark } from "./sim/ridership";
+import { SimClient } from "./sim/simClient";
 import { EditorState } from "./ui/editorState";
 import { createLinePanel } from "./ui/linePanel";
+import { buildSegmentPopup } from "./ui/segmentPopup";
 import { buildStationPopup } from "./ui/stationPopup";
 
 const mapContainer = document.getElementById("map")!;
@@ -78,9 +80,47 @@ function stationAt(point: { x: number; y: number }): string | null {
 
 let popup: maplibregl.Popup | null = null;
 
+/** 点击点到线路区间的命中检测:返回该线上最近的区间号,或 null */
+function segmentAt(
+  point: { x: number; y: number },
+  lineId: string,
+  maxDistPx = 8,
+): number | null {
+  const line = network.getLine(lineId);
+  if (!line) return null;
+  let best: number | null = null;
+  let bestD = maxDistPx;
+  for (let k = 0; k + 1 < line.stationIds.length; k++) {
+    const a = network.getStation(line.stationIds[k]!);
+    const b = network.getStation(line.stationIds[k + 1]!);
+    if (!a || !b) continue;
+    const pa = map.project([a.lng, a.lat]);
+    const pb = map.project([b.lng, b.lat]);
+    const d = pointSegDist(point, pa, pb);
+    if (d < bestD) {
+      bestD = d;
+      best = k;
+    }
+  }
+  return best;
+}
+
+function pointSegDist(
+  p: { x: number; y: number },
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+): number {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len2 = dx * dx + dy * dy;
+  const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2));
+  return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
+}
+
 map.on("load", async () => {
   const { popGrid, attrGrid, landmarks } = await loadCityData();
-  const ridership = new RidershipModel(network, popGrid, attrGrid, landmarks);
+  const sim = new SimClient(network);
+  sim.init(popGrid, attrGrid, landmarks);
 
   function openStationPopup(stationId: string): void {
     const station = network.getStation(stationId);
@@ -88,7 +128,15 @@ map.on("load", async () => {
     popup?.remove();
     popup = new maplibregl.Popup({ closeButton: true, maxWidth: "260px" })
       .setLngLat([station.lng, station.lat])
-      .setDOMContent(buildStationPopup(network, ridership, stationId, () => popup?.remove()))
+      .setDOMContent(buildStationPopup(network, sim, stationId, () => popup?.remove()))
+      .addTo(map);
+  }
+
+  function openSegmentPopup(lngLat: maplibregl.LngLat, lineId: string, seg: number): void {
+    popup?.remove();
+    popup = new maplibregl.Popup({ closeButton: true, maxWidth: "280px" })
+      .setLngLat(lngLat)
+      .setDOMContent(buildSegmentPopup(network, sim, lineId, seg))
       .addTo(map);
   }
 
@@ -96,7 +144,7 @@ map.on("load", async () => {
   network.subscribe(() => updateNetworkLayers(map, network));
   if (popGrid) installHeatLayer(map, popGrid);
 
-  createLinePanel(panelContainer, network, editor, ridership, {
+  createLinePanel(panelContainer, network, editor, sim, {
     onImport: (imported) => {
       // 导入是低频操作:落盘后整页重载,避免到处重连订阅
       saveNow(imported);
@@ -119,7 +167,18 @@ map.on("load", async () => {
       network.appendStationToLine(editingLineId, stationId);
       return;
     }
-    if (hitStation) openStationPopup(hitStation);
+    if (hitStation) {
+      openStationPopup(hitStation);
+      return;
+    }
+    // 车站没命中,试试线路区间
+    for (const line of network.lines) {
+      const seg = segmentAt(e.point, line.id);
+      if (seg !== null) {
+        openSegmentPopup(e.lngLat, line.id, seg);
+        return;
+      }
+    }
   });
   map.on("mousemove", (e) => {
     if (editor.editingLineId) return;
@@ -132,7 +191,7 @@ map.on("load", async () => {
       network,
       editor,
       map,
-      ridership,
+      sim,
     };
   }
 });
