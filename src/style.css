@@ -182,3 +182,68 @@ button.danger {
   text-align: center;
   line-height: 1.6;
 }
+
+.plan-editor {
+  margin: -2px 0 8px;
+  padding: 10px;
+  background: #fff;
+  border: 1px solid #e3e3e3;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.plan-editor .plan-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.plan-editor .plan-row > span {
+  color: #888;
+  width: 38px;
+  flex-shrink: 0;
+}
+
+.plan-editor input[type="time"],
+.plan-editor select {
+  font: inherit;
+  padding: 2px 4px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  background: #fff;
+}
+
+.plan-editor .cap-line {
+  color: #2f6fb3;
+  margin-bottom: 8px;
+}
+
+.plan-editor .hours-box {
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.plan-editor .hour-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+.plan-editor .hour-label {
+  color: #888;
+  width: 32px;
+  flex-shrink: 0;
+}
+
+.plan-editor .hour-row input[type="range"] {
+  flex: 1;
+  min-width: 0;
+}
+
+.plan-editor .hour-value {
+  width: 34px;
+  text-align: right;
+  color: #333;
+}

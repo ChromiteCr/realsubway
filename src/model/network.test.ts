@@ -92,6 +92,36 @@ describe("Network 线路", () => {
   });
 });
 
+describe("Network 服务计划", () => {
+  it("部分更新生效并触发订阅", () => {
+    const net = new Network();
+    const l = net.addLine();
+    let calls = 0;
+    net.subscribe(() => calls++);
+    net.updateServicePlan(l.id, { stock: { type: "A", cars: 8 } });
+    const plan = net.getLine(l.id)!.servicePlan;
+    expect(plan.stock).toEqual({ type: "A", cars: 8 });
+    expect(plan.firstTrainMin).toBe(330); // 未动的字段保持
+    expect(calls).toBe(1);
+  });
+
+  it("非法值被钳制:间隔、编组、首末班车次序", () => {
+    const net = new Network();
+    const l = net.addLine();
+    net.updateServicePlan(l.id, {
+      headwayByHour: new Array(24).fill(0.5),
+      stock: { type: "C", cars: 99 },
+      firstTrainMin: 1430,
+      lastTrainMin: 100,
+    });
+    const plan = net.getLine(l.id)!.servicePlan;
+    expect(plan.headwayByHour.every((h) => h >= 2)).toBe(true);
+    expect(plan.stock.cars).toBe(10);
+    expect(plan.lastTrainMin - plan.firstTrainMin).toBeGreaterThanOrEqual(60);
+    expect(plan.lastTrainMin).toBeLessThanOrEqual(1439);
+  });
+});
+
 describe("Network 序列化", () => {
   it("toJSON/fromJSON 往返保持全部数据", () => {
     const net = new Network();

@@ -4,6 +4,7 @@ import { Network as NetworkClass } from "../model/network";
 import type { SimClient } from "../sim/simClient";
 import type { EditorState } from "./editorState";
 import { fmtRiders } from "./format";
+import { buildServicePlanEditor } from "./servicePlanEditor";
 
 interface PanelCallbacks {
   /** 导入存档后用新 Network 实例重建应用 */
@@ -20,7 +21,17 @@ export function createLinePanel(
   sim: SimClient,
   callbacks: PanelCallbacks,
 ): void {
+  /** 当前展开服务计划编辑器的线路 */
+  let openPlanLineId: string | null = null;
+  /** 滑条拖动期间挂起重渲染,松手后补渲染 */
+  let suppressRender = false;
+  let pendingRender = false;
+
   const render = () => {
+    if (suppressRender) {
+      pendingRender = true;
+      return;
+    }
     container.innerHTML = "";
 
     const header = document.createElement("header");
@@ -93,17 +104,47 @@ export function createLinePanel(
         editBtn.addEventListener("click", () => editor.setEditingLine(line.id));
       }
 
+      const planBtn = document.createElement("button");
+      planBtn.textContent = openPlanLineId === line.id ? "收起" : "计划";
+      planBtn.addEventListener("click", () => {
+        openPlanLineId = openPlanLineId === line.id ? null : line.id;
+        render();
+      });
+
       const delBtn = document.createElement("button");
       delBtn.className = "danger";
       delBtn.textContent = "删";
       delBtn.addEventListener("click", () => {
         if (!confirm(`删除「${line.name}」?车站会保留。`)) return;
         if (editor.editingLineId === line.id) editor.setEditingLine(null);
+        if (openPlanLineId === line.id) openPlanLineId = null;
         network.deleteLine(line.id);
       });
 
-      item.append(dot, name, count, editBtn, delBtn);
+      item.append(dot, name, count, editBtn, planBtn, delBtn);
       list.appendChild(item);
+
+      if (openPlanLineId === line.id) {
+        const planEditor = buildServicePlanEditor(network, line);
+        // 只在拖动滑条时挂起重渲染;松手用 window 一次性监听,避免卡死
+        planEditor.addEventListener("pointerdown", (e) => {
+          const t = e.target as HTMLElement;
+          if (!(t instanceof HTMLInputElement) || t.type !== "range") return;
+          suppressRender = true;
+          window.addEventListener(
+            "pointerup",
+            () => {
+              suppressRender = false;
+              if (pendingRender) {
+                pendingRender = false;
+                render();
+              }
+            },
+            { once: true },
+          );
+        });
+        list.appendChild(planEditor);
+      }
     }
 
     const actions = document.createElement("div");

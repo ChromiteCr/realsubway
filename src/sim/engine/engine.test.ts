@@ -218,6 +218,36 @@ describe("runSimulation 集成", () => {
   });
 });
 
+describe("服务计划影响分配", () => {
+  it("并行双线竞争:间隔小的线赢得客流,编辑间隔后反转", () => {
+    const grid = uniformGrid(500);
+    const net = new Network();
+    const a = net.addStation(116.394, 39.898);
+    const b = net.addStation(116.406, 39.905);
+    const fast = net.addLine("快线");
+    const slow = net.addLine("慢线");
+    for (const l of [fast, slow]) {
+      net.appendStationToLine(l.id, a.id);
+      net.appendStationToLine(l.id, b.id);
+    }
+    net.updateServicePlan(fast.id, { headwayByHour: new Array(24).fill(3) });
+    net.updateServicePlan(slow.id, { headwayByHour: new Array(24).fill(15) });
+
+    const res1 = runSimulation(net.toJSON(), grid, null, []);
+    const load = (r: typeof res1, id: string) =>
+      r.segLoads[r.lineIds.indexOf(id)]!.reduce((s, v) => s + v, 0);
+    expect(load(res1, fast.id)).toBeGreaterThan(0);
+    expect(load(res1, slow.id)).toBe(0);
+
+    // 反转两线间隔,客流应跟着走
+    net.updateServicePlan(fast.id, { headwayByHour: new Array(24).fill(15) });
+    net.updateServicePlan(slow.id, { headwayByHour: new Array(24).fill(3) });
+    const res2 = runSimulation(net.toJSON(), grid, null, []);
+    expect(load(res2, slow.id)).toBeGreaterThan(0);
+    expect(load(res2, fast.id)).toBe(0);
+  });
+});
+
 describe("时变曲线", () => {
   it("早晚高峰曲线各自归一", () => {
     const sum = (arr: number[]) => arr.reduce((a, b) => a + b, 0);

@@ -1,6 +1,16 @@
 import { pickLineColor } from "../config/colors";
 import { defaultServicePlan } from "../config/rollingstock";
-import type { LineData, NetworkData, StationData } from "./types";
+import type { LineData, NetworkData, ServicePlan, StationData } from "./types";
+
+/** 服务计划的合法范围,编辑器与校验共用 */
+export const PLAN_LIMITS = {
+  headwayMin: 2,
+  headwayMax: 30,
+  carsMin: 2,
+  carsMax: 10,
+  /** 首末班车之间至少要有的运营时长(分钟) */
+  minServiceSpan: 60,
+} as const;
 
 type Listener = () => void;
 
@@ -96,6 +106,36 @@ export class Network {
     this.emit();
   }
 
+  /** 部分更新服务计划;所有字段钳制到 PLAN_LIMITS 合法范围后生效 */
+  updateServicePlan(lineId: string, patch: Partial<ServicePlan>): void {
+    const line = this.lineMap.get(lineId);
+    if (!line) return;
+    const cur = line.servicePlan;
+    const next: ServicePlan = {
+      firstTrainMin: patch.firstTrainMin ?? cur.firstTrainMin,
+      lastTrainMin: patch.lastTrainMin ?? cur.lastTrainMin,
+      headwayByHour: (patch.headwayByHour ?? cur.headwayByHour).map((h) =>
+        clamp(Math.round(h), PLAN_LIMITS.headwayMin, PLAN_LIMITS.headwayMax),
+      ),
+      stock: {
+        type: patch.stock?.type ?? cur.stock.type,
+        cars: clamp(
+          Math.round(patch.stock?.cars ?? cur.stock.cars),
+          PLAN_LIMITS.carsMin,
+          PLAN_LIMITS.carsMax,
+        ),
+      },
+    };
+    next.firstTrainMin = clamp(next.firstTrainMin, 0, 1439 - PLAN_LIMITS.minServiceSpan);
+    next.lastTrainMin = clamp(
+      next.lastTrainMin,
+      next.firstTrainMin + PLAN_LIMITS.minServiceSpan,
+      1439,
+    );
+    line.servicePlan = next;
+    this.emit();
+  }
+
   /** 把车站追加到线路末尾;与当前末站相同时拒绝,返回是否成功 */
   appendStationToLine(lineId: string, stationId: string): boolean {
     const line = this.lineMap.get(lineId);
@@ -153,6 +193,10 @@ export class Network {
     net.lineSeq = maxSeq(data.lines.map((l) => l.id), "l");
     return net;
   }
+}
+
+function clamp(v: number, lo: number, hi: number): number {
+  return Math.min(hi, Math.max(lo, v));
 }
 
 function maxSeq(ids: string[], prefix: string): number {
