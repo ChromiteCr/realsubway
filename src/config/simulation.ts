@@ -20,6 +20,18 @@ export const GRAVITY_BETA = 1.6;
 /** 距离衰减的最小距离(公里),避免近距爆炸 */
 export const GRAVITY_MIN_KM = 1.5;
 
+// —— 通勤方式选择(M4 第三部分)——
+// share = 1 / (1 + exp(θ·(g_metro − g_alt))),g 为广义时间(分钟)
+
+/** logit 灵敏度(1/分钟):地铁比替代方式每慢 10 分钟,分担率约从 50% 降到 27% */
+export const MODE_THETA = 0.1;
+
+/** 替代方式(小汽车/公交混合)的门到门速度 */
+export const ALT_SPEED_KMH = 25;
+
+/** 替代方式固定惩罚(找车位/等公交等),分钟 */
+export const ALT_PENALTY_MIN = 15;
+
 /** 早高峰逐时占比(去程 家→工作,按自然小时索引) */
 export const AM_PROFILE = buildProfile({
   5: 0.02, 6: 0.08, 7: 0.2, 8: 0.21, 9: 0.11, 10: 0.06, 11: 0.05, 12: 0.05,

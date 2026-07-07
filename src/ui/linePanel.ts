@@ -46,11 +46,12 @@ export function createLinePanel(
     } else if (sim.state === "computing") {
       stats.textContent = "运输总量:计算中…";
     } else {
-      stats.textContent = `运输总量 ≈ ${fmtRiders(sim.total())}/日(${sim.computeMs.toFixed(0)}ms)`;
-      const notes: string[] = [];
-      if (sim.unserved() > 1000) notes.push(`未送达 ${fmtRiders(sim.unserved())}`);
-      if (sim.unreachable() > 1000) notes.push(`无法到达 ${fmtRiders(sim.unreachable())}`);
-      if (notes.length > 0) stats.textContent += ` · ${notes.join(" · ")}`;
+      stats.textContent =
+        `运输总量 ≈ ${fmtRiders(sim.total())}/日 · ` +
+        `分担率 ${(sim.modeShare() * 100).toFixed(0)}%(${sim.computeMs.toFixed(0)}ms)`;
+      if (sim.unserved() > 1000) {
+        stats.textContent += ` · 未送达 ${fmtRiders(sim.unserved())}`;
+      }
     }
     header.append(h1, p, stats);
     container.appendChild(header);

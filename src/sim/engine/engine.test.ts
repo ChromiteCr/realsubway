@@ -175,18 +175,18 @@ describe("assignOD", () => {
     W[0 * n + 2] = 100; // a→c,穿过两个区间
     W[1 * n + 0] = 50; // b→a
     const res = assignOD(net.toJSON(), W);
-    // 送达+未送达守恒;运营时段外(23时后回程份额)会有少量流失
-    expect(res.servedTrips + res.unservedTrips).toBeCloseTo(300, 1);
-    expect(res.servedTrips).toBeGreaterThan(280);
-    expect(res.servedTrips).toBeLessThan(300);
-    expect(res.unreachableTrips).toBe(0);
+    // 方式选择后:地铁需求 = 送达+未送达 守恒;断面比例与 OD 比例一致
+    expect(res.servedTrips + res.unservedTrips).toBeCloseTo(res.metroDemandTrips, 1);
+    expect(res.metroDemandTrips).toBeGreaterThan(0);
+    expect(res.metroDemandTrips).toBeLessThan(res.potentialTrips);
     const loads = res.segLoads[0]!;
-    expect(loads[0 * 2 + 0]).toBeCloseTo(100, 3); // 区间0 顺向: a→c
-    expect(loads[0 * 2 + 1]).toBeCloseTo(50, 3); // 区间0 逆向: b→a
-    expect(loads[1 * 2 + 0]).toBeCloseTo(100, 3); // 区间1 顺向: a→c
+    // a→c 的地铁需求应是 b→a 的两倍量级关系不再精确成立(share 不同),
+    // 但两个区间承载同一 a→c 流,应相等
+    expect(loads[0 * 2 + 0]).toBeCloseTo(loads[1 * 2 + 0]!, 3);
+    expect(loads[0 * 2 + 1]!).toBeGreaterThan(0); // b→a 逆向有流量
   });
 
-  it("不连通的 OD 计入无法到达", () => {
+  it("不可达 OD 分担率自然为 0:计入潜在,不产生地铁需求", () => {
     const net = new Network();
     const a = net.addStation(116.38, 39.9);
     const b = net.addStation(116.4, 39.9);
@@ -197,10 +197,12 @@ describe("assignOD", () => {
     const n = 3;
     const W = new Float32Array(n * n);
     W[0 * n + 1] = 10;
-    W[0 * n + 2] = 5; // 去孤立站,不可达
+    W[0 * n + 2] = 5; // 去孤立站,不可达 → share 0
     const res = assignOD(net.toJSON(), W);
-    expect(res.servedTrips + res.unservedTrips).toBeCloseTo(20, 1);
-    expect(res.unreachableTrips).toBeCloseTo(10, 3);
+    expect(res.potentialTrips).toBeCloseTo(30, 3); // (10+5)×2
+    // 地铁需求只来自 a→b
+    expect(res.metroDemandTrips).toBeLessThanOrEqual(20);
+    expect(res.metroDemandTrips).toBeGreaterThan(0);
   });
 
   it("M4-2 完成标准:间隔 3→10 分钟出现高峰未送达且运输总量下降,6B 换 8A 吃掉拥挤", () => {
@@ -260,8 +262,64 @@ describe("runSimulation 集成", () => {
     for (const s of [a, b, c]) net.appendStationToLine(l.id, s.id);
     const res = runSimulation(net.toJSON(), grid, null, []);
     expect(res.servedTrips).toBeGreaterThan(0);
-    expect(res.unreachableTrips).toBe(0);
+    expect(res.servedTrips).toBeLessThanOrEqual(res.potentialTrips);
     expect(res.stationIds).toHaveLength(3);
+  });
+});
+
+describe("M4-3 完成标准:方式选择的需求弹性", () => {
+  // 站距 6.8km 超出 8×8 测试栅格覆盖,需求源改用地标(两端各挂一个)
+  const LM_A = { name: "居住区", lng: 116.38, lat: 39.9, dailyTrips: 20000 };
+  const LM_B = { name: "就业区", lng: 116.46, lat: 39.9, dailyTrips: 20000 };
+
+  function twoStationNet() {
+    const net = new Network();
+    const a = net.addStation(116.38, 39.9);
+    const b = net.addStation(116.46, 39.9); // ~6.8km,地铁与替代方式有得比
+    const l = net.addLine();
+    net.appendStationToLine(l.id, a.id);
+    net.appendStationToLine(l.id, b.id);
+    return { net, l };
+  }
+
+  it("加密班次(15→2 分钟)→ 日出行量上升", () => {
+    const { net, l } = twoStationNet();
+    net.updateServicePlan(l.id, { headwayByHour: new Array(24).fill(15) });
+    const sparse = runSimulation(net.toJSON(), null, null, [LM_A, LM_B]);
+    net.updateServicePlan(l.id, { headwayByHour: new Array(24).fill(2) });
+    const dense = runSimulation(net.toJSON(), null, null, [LM_A, LM_B]);
+    expect(sparse.servedTrips).toBeGreaterThan(0);
+    expect(dense.servedTrips).toBeGreaterThan(sparse.servedTrips * 1.05);
+    // 潜在需求不变,变的是分担率
+    expect(dense.potentialTrips).toBeCloseTo(sparse.potentialTrips, 1);
+  });
+
+  it("同站点集加一条直达快线 → 全网日出行净增加(纯弹性,非转移)", () => {
+    const net = new Network();
+    const a = net.addStation(116.38, 39.9);
+    const mid = net.addStation(116.42, 39.94); // 绕行中转点
+    const b = net.addStation(116.46, 39.9);
+    const slow = net.addLine("绕行线");
+    for (const s of [a, mid, b]) net.appendStationToLine(slow.id, s.id);
+    const before = runSimulation(net.toJSON(), null, null, [LM_A, LM_B]);
+
+    const fast = net.addLine("直达线");
+    net.appendStationToLine(fast.id, a.id);
+    net.appendStationToLine(fast.id, b.id);
+    const after = runSimulation(net.toJSON(), null, null, [LM_A, LM_B]);
+
+    expect(before.servedTrips).toBeGreaterThan(0);
+    expect(after.potentialTrips).toBeCloseTo(before.potentialTrips, 1);
+    expect(after.servedTrips).toBeGreaterThan(before.servedTrips * 1.02);
+  });
+
+  it("减班拆线 → 下降(与加密对称)", () => {
+    const { net, l } = twoStationNet();
+    const base = runSimulation(net.toJSON(), null, null, [LM_A, LM_B]);
+    net.updateServicePlan(l.id, { headwayByHour: new Array(24).fill(30) });
+    const degraded = runSimulation(net.toJSON(), null, null, [LM_A, LM_B]);
+    expect(base.servedTrips).toBeGreaterThan(0);
+    expect(degraded.servedTrips).toBeLessThan(base.servedTrips);
   });
 });
 

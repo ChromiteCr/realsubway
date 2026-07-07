@@ -3,7 +3,7 @@ import {
   CATCHMENT_RADIUS_M,
   CATCHMENT_SIGMA_M,
   LANDMARK_RADIUS_M,
-  TRIP_RATE,
+  POTENTIAL_RATE,
 } from "../../config/demand";
 import { haversineKm } from "../../model/geo";
 import type { StationData } from "../../model/types";
@@ -60,7 +60,7 @@ export function computeStationWeights(
     for (let i = 0; i < n; i++) {
       for (const { key, w } of catchments[i]!) {
         const share = w / (cellTotalW.get(key) ?? w);
-        production[i]! += popGrid.data[key]! * TRIP_RATE * share;
+        production[i]! += popGrid.data[key]! * POTENTIAL_RATE * share;
         if (attrGrid) {
           attraction[i]! += attrGrid.data[key]! * attrScale * attrPerWeight * share;
         }

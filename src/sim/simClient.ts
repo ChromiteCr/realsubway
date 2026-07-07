@@ -100,13 +100,15 @@ export class SimClient {
     return this.result?.servedTrips ?? 0;
   }
 
-  unreachable(): number {
-    return this.result?.unreachableTrips ?? 0;
-  }
-
   /** 超运力/停运时段未送达 */
   unserved(): number {
     return this.result?.unservedTrips ?? 0;
+  }
+
+  /** 地铁分担率 = 送达出行 ÷ 潜在通勤出行 */
+  modeShare(): number {
+    const potential = this.result?.potentialTrips ?? 0;
+    return potential > 0 ? (this.result?.servedTrips ?? 0) / potential : 0;
   }
 
   /** 区间最高满载率(>1 表示拥挤截断) */

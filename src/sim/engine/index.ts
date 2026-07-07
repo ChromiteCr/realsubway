@@ -16,12 +16,14 @@ export interface SimResult {
   segLoads: Float32Array[];
   /** 每线区间最高满载率(需求÷运力),与 lineIds 对齐 */
   loadFactors: Float32Array[];
+  /** 潜在通勤出行(含回程),分担率分母 */
+  potentialTrips: number;
+  /** 选择地铁的出行(截断前,含回程) */
+  metroDemandTrips: number;
   /** 运输总量:容量与运营时段截断后的日送达出行(含回程) */
   servedTrips: number;
-  /** 超运力/停运时段未送达(含回程) */
+  /** 选择地铁但因超运力/停运未送达(含回程) */
   unservedTrips: number;
-  /** 因网络不连通无法完成的日出行(含回程) */
-  unreachableTrips: number;
   computeMs: number;
 }
 
@@ -41,9 +43,10 @@ export function runSimulation(
     lineIds: net.lines.map((l) => l.id),
     segLoads: r.segLoads,
     loadFactors: r.loadFactors,
+    potentialTrips: r.potentialTrips,
+    metroDemandTrips: r.metroDemandTrips,
     servedTrips: r.servedTrips,
     unservedTrips: r.unservedTrips,
-    unreachableTrips: r.unreachableTrips,
     computeMs: performance.now() - t0,
   };
 }
