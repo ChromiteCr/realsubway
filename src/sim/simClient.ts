@@ -18,6 +18,7 @@ export class SimClient {
   private result: SimResult | null = null;
   private ridersById = new Map<string, number>();
   private segByLineId = new Map<string, Float32Array>();
+  private lfByLineId = new Map<string, Float32Array>();
   private debounceTimer: ReturnType<typeof setTimeout> | undefined;
   private _state: SimState = "nodata";
   private _hasGrids = false;
@@ -33,6 +34,10 @@ export class SimClient {
       );
       this.segByLineId.clear();
       this.result.lineIds.forEach((id, i) => this.segByLineId.set(id, this.result!.segLoads[i]!));
+      this.lfByLineId.clear();
+      this.result.lineIds.forEach((id, i) =>
+        this.lfByLineId.set(id, this.result!.loadFactors[i]!),
+      );
       this._state = "ready";
       this.emit();
     };
@@ -97,6 +102,16 @@ export class SimClient {
 
   unreachable(): number {
     return this.result?.unreachableTrips ?? 0;
+  }
+
+  /** 超运力/停运时段未送达 */
+  unserved(): number {
+    return this.result?.unservedTrips ?? 0;
+  }
+
+  /** 区间最高满载率(>1 表示拥挤截断) */
+  loadFactor(lineId: string, seg: number): number {
+    return this.lfByLineId.get(lineId)?.[seg] ?? 0;
   }
 
   /** 区间日断面(单向;去程+回程,双向对称) */

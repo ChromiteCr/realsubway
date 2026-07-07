@@ -14,6 +14,8 @@ import {
 import type { Landmark } from "./sim/engine";
 import { DataGrid } from "./sim/grids";
 import { SimClient } from "./sim/simClient";
+import { installTrainLayer, TrainAnimator } from "./render/trainLayer";
+import { createClockControl, SimClock } from "./ui/clock";
 import { EditorState } from "./ui/editorState";
 import { createLinePanel } from "./ui/linePanel";
 import { buildSegmentPopup } from "./ui/segmentPopup";
@@ -144,6 +146,15 @@ map.on("load", async () => {
   network.subscribe(() => updateNetworkLayers(map, network));
   if (popGrid) installHeatLayer(map, popGrid);
 
+  // 列车动画:时刻表解析求值,时钟驱动
+  installTrainLayer(map);
+  const animator = new TrainAnimator(map, network);
+  const clock = new SimClock();
+  clock.onTick((minutes) => animator.render(minutes));
+  clock.start();
+  createClockControl(mapContainer, clock);
+  animator.render(clock.minutes);
+
   createLinePanel(panelContainer, network, editor, sim, {
     onImport: (imported) => {
       // 导入是低频操作:落盘后整页重载,避免到处重连订阅
@@ -192,6 +203,8 @@ map.on("load", async () => {
       editor,
       map,
       sim,
+      clock,
+      animator,
     };
   }
 });

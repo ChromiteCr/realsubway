@@ -48,7 +48,10 @@ export function lineFracTable(line: LineData, segW: Float32Array): Float32Array 
   return frac;
 }
 
-/** 每条线区间的最高满载率(最忙小时/方向的 需求÷运力;运力为0且有需求时记 Infinity→封顶99) */
+/**
+ * 每条线区间的最高满载率(最忙运营小时/方向的 需求÷运力)。
+ * 停运小时不计入——那部分需求流失记在"未送达",不属于拥挤。
+ */
 export function lineLoadFactor(line: LineData, segW: Float32Array): Float32Array {
   const segs = Math.max(0, line.stationIds.length - 1);
   const lf = new Float32Array(segs);
@@ -58,13 +61,14 @@ export function lineLoadFactor(line: LineData, segW: Float32Array): Float32Array
     const bw = segW[seg * 2 + 1] ?? 0;
     let worst = 0;
     for (let h = 0; h < 24; h++) {
+      if (cap[h]! <= 0) continue;
       for (const [out, back] of [
         [fw, bw],
         [bw, fw],
       ] as const) {
         const load = out * AM_PROFILE[h]! + back * PM_PROFILE[h]!;
         if (load <= 0) continue;
-        const ratio = cap[h]! > 0 ? load / cap[h]! : 99;
+        const ratio = load / cap[h]!;
         if (ratio > worst) worst = ratio;
       }
     }

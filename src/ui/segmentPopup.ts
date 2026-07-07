@@ -44,5 +44,15 @@ export function buildSegmentPopup(
   peakLine.textContent = `高峰小时最忙方向 ${peakDir} ≈ ${fmtRiders(peak.load)}/h`;
   root.appendChild(peakLine);
 
+  const lf = sim.loadFactor(lineId, seg);
+  const lfLine = document.createElement("div");
+  lfLine.style.fontSize = "12px";
+  lfLine.style.color = lf > 1 ? "#c0392b" : "#666";
+  lfLine.textContent =
+    lf > 1
+      ? `高峰满载率 ${(lf * 100).toFixed(0)}% — 超运力,乘客被甩站`
+      : `高峰满载率 ${(lf * 100).toFixed(0)}%`;
+  root.appendChild(lfLine);
+
   return root;
 }

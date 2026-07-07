@@ -42,14 +42,15 @@ export function createLinePanel(
     const stats = document.createElement("div");
     stats.className = "stats-line";
     if (!sim.hasData) {
-      stats.textContent = "日出行:暂无数据";
+      stats.textContent = "运输总量:暂无数据";
     } else if (sim.state === "computing") {
-      stats.textContent = "日出行:计算中…";
+      stats.textContent = "运输总量:计算中…";
     } else {
-      stats.textContent = `日出行 ≈ ${fmtRiders(sim.total())}(${sim.computeMs.toFixed(0)}ms)`;
-      if (sim.unreachable() > 1000) {
-        stats.textContent += ` · 无法到达 ${fmtRiders(sim.unreachable())}`;
-      }
+      stats.textContent = `运输总量 ≈ ${fmtRiders(sim.total())}/日(${sim.computeMs.toFixed(0)}ms)`;
+      const notes: string[] = [];
+      if (sim.unserved() > 1000) notes.push(`未送达 ${fmtRiders(sim.unserved())}`);
+      if (sim.unreachable() > 1000) notes.push(`无法到达 ${fmtRiders(sim.unreachable())}`);
+      if (notes.length > 0) stats.textContent += ` · ${notes.join(" · ")}`;
     }
     header.append(h1, p, stats);
     container.appendChild(header);

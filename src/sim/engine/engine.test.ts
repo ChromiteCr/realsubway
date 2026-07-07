@@ -175,16 +175,18 @@ describe("assignOD", () => {
     W[0 * n + 2] = 100; // a→c,穿过两个区间
     W[1 * n + 0] = 50; // b→a
     const res = assignOD(net.toJSON(), W);
-    expect(res.servedTrips).toBeCloseTo(300, 3);
+    // 送达+未送达守恒;运营时段外(23时后回程份额)会有少量流失
+    expect(res.servedTrips + res.unservedTrips).toBeCloseTo(300, 1);
+    expect(res.servedTrips).toBeGreaterThan(280);
+    expect(res.servedTrips).toBeLessThan(300);
     expect(res.unreachableTrips).toBe(0);
-    const loads = res.segLoads.perLine[0]!;
+    const loads = res.segLoads[0]!;
     expect(loads[0 * 2 + 0]).toBeCloseTo(100, 3); // 区间0 顺向: a→c
     expect(loads[0 * 2 + 1]).toBeCloseTo(50, 3); // 区间0 逆向: b→a
     expect(loads[1 * 2 + 0]).toBeCloseTo(100, 3); // 区间1 顺向: a→c
-    expect(res.stationRiders[0]!).toBeCloseTo(300, 3); // a: 出100×2 + 入50×2
   });
 
-  it("不连通的 OD 计入未送达", () => {
+  it("不连通的 OD 计入无法到达", () => {
     const net = new Network();
     const a = net.addStation(116.38, 39.9);
     const b = net.addStation(116.4, 39.9);
@@ -197,8 +199,53 @@ describe("assignOD", () => {
     W[0 * n + 1] = 10;
     W[0 * n + 2] = 5; // 去孤立站,不可达
     const res = assignOD(net.toJSON(), W);
-    expect(res.servedTrips).toBeCloseTo(20, 3);
+    expect(res.servedTrips + res.unservedTrips).toBeCloseTo(20, 1);
     expect(res.unreachableTrips).toBeCloseTo(10, 3);
+  });
+
+  it("M4-2 完成标准:间隔 3→10 分钟出现高峰未送达且运输总量下降,6B 换 8A 吃掉拥挤", () => {
+    const net = new Network();
+    const a = net.addStation(116.38, 39.9);
+    const b = net.addStation(116.4, 39.9);
+    const l = net.addLine();
+    net.appendStationToLine(l.id, a.id);
+    net.appendStationToLine(l.id, b.id);
+    const n = 2;
+    const W = new Float32Array(n * n);
+    W[0 * n + 1] = 100_000; // 大客流,3 分钟间隔的 6B(29400/h)在高峰也接近极限
+    net.updateServicePlan(l.id, { headwayByHour: new Array(24).fill(3) });
+    const dense = assignOD(net.toJSON(), W);
+
+    net.updateServicePlan(l.id, { headwayByHour: new Array(24).fill(10) });
+    const sparse = assignOD(net.toJSON(), W);
+    expect(sparse.servedTrips).toBeLessThan(dense.servedTrips);
+    expect(sparse.unservedTrips).toBeGreaterThan(dense.unservedTrips);
+    // 满载率 >1:高峰拥挤可见
+    expect(Math.max(...sparse.loadFactors[0]!)).toBeGreaterThan(1);
+
+    // 同样 10 分钟间隔,6B 换 8A(1470→2480 定员)恢复大部分送达
+    net.updateServicePlan(l.id, { stock: { type: "A", cars: 8 } });
+    const bigTrains = assignOD(net.toJSON(), W);
+    expect(bigTrains.servedTrips).toBeGreaterThan(sparse.servedTrips);
+    expect(Math.max(...bigTrains.loadFactors[0]!)).toBeLessThan(
+      Math.max(...sparse.loadFactors[0]!),
+    );
+  });
+
+  it("末班车提前导致晚间出行流失", () => {
+    const net = new Network();
+    const a = net.addStation(116.38, 39.9);
+    const b = net.addStation(116.4, 39.9);
+    const l = net.addLine();
+    net.appendStationToLine(l.id, a.id);
+    net.appendStationToLine(l.id, b.id);
+    const n = 2;
+    const W = new Float32Array(n * n);
+    W[0 * n + 1] = 1000;
+    const fullDay = assignOD(net.toJSON(), W);
+    net.updateServicePlan(l.id, { lastTrainMin: 19 * 60 }); // 19:00 收车
+    const earlyClose = assignOD(net.toJSON(), W);
+    expect(earlyClose.servedTrips).toBeLessThan(fullDay.servedTrips * 0.9);
   });
 });
 

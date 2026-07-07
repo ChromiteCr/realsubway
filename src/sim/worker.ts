@@ -35,6 +35,7 @@ self.onmessage = (ev: MessageEvent<WorkerRequest>) => {
   const transfers = [
     result.stationRiders.buffer,
     ...result.segLoads.map((a) => a.buffer),
+    ...result.loadFactors.map((a) => a.buffer),
   ];
   (self as unknown as Worker).postMessage({ type: "result", seq: msg.seq, result }, transfers);
 };
