@@ -14,6 +14,8 @@ export interface Landmark {
   lng: number;
   lat: number;
   dailyTrips: number;
+  /** true = 交通枢纽(机场/火车站),走 M4Y 外生 OD 层,不计入引力吸引 */
+  hub?: boolean;
 }
 
 export interface StationWeights {
@@ -68,8 +70,10 @@ export function computeStationWeights(
     }
   }
 
-  // 地标同时计入两端:既产生出行也吸引出行
+  // 吸引型地标同时计入两端:既产生出行也吸引出行。
+  // 交通枢纽(hub)不在此处理——它们是外生客流,由 addHubOD 单独注入(M4Y)。
   for (const lm of landmarks) {
+    if (lm.hub) continue;
     const near: { idx: number; w: number }[] = [];
     for (let i = 0; i < n; i++) {
       const distM = haversineKm(stations[i]!, lm) * 1000;

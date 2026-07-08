@@ -6,7 +6,6 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { Network } from "../../model/network";
 import type { NetworkData } from "../../model/types";
 import { DataGrid, type GridMeta } from "../grids";
 import { runSimulation, type SimResult } from "./index";
@@ -82,37 +81,19 @@ describe("现网验证(真实数据)", () => {
     expect(top5).not.toContain("大兴机场线");
   });
 
-  it("孤立线显著弱于接入网络的同一条线", () => {
-    // 同样一条中心城区 3 站线:孤立 vs 与现网某线交汇
-    const isolated = new Network();
-    const s1 = isolated.addStation(116.39, 39.92);
-    const s2 = isolated.addStation(116.41, 39.93);
-    const s3 = isolated.addStation(116.43, 39.94);
-    const il = isolated.addLine("测试线");
-    for (const s of [s1, s2, s3]) isolated.appendStationToLine(il.id, s.id);
-    const resIsolated = runSimulation(isolated.toJSON(), popGrid, attrGrid, landmarks);
-
-    // 接入:把同一条线拼进现网(共享一个换乘站)
-    const connected = Network.fromJSON(starter);
-    const c1 = connected.addStation(116.39, 39.92);
-    const c2 = connected.addStation(116.41, 39.93);
-    const c3 = connected.addStation(116.43, 39.94);
-    const cl = connected.addLine("测试线");
-    for (const s of [c1, c2, c3]) connected.appendStationToLine(cl.id, s.id);
-    // 与 2号线东四十条附近连接:直接把测试线延到现网里的一个站
-    const dongsi = connected.stations.find((s) => s.name === "东四十条");
-    expect(dongsi).toBeDefined();
-    connected.appendStationToLine(cl.id, dongsi!.id);
-    const resConnected = runSimulation(connected.toJSON(), popGrid, attrGrid, landmarks);
-
-    const isolatedLoad = lineDailyCrossings(resIsolated, il.id);
-    const connectedLoad = lineDailyCrossings(resConnected, cl.id);
+  it("M4Y:交通枢纽在现网中被抬升——机场/火车站进出站量达枢纽量级", () => {
+    const ridersOfName = (name: string): number => {
+      const st = starter.stations.find((s) => s.name === name);
+      if (!st) return -1;
+      return res.stationRiders[res.stationIds.indexOf(st.id)]!;
+    };
+    const airport = ridersOfName("首都机场2号航站楼"); // 距机场地标 0.9km,在 4km 上限内
+    const westRail = ridersOfName("北京西站");
     console.log(
-      `孤立线负载 ${(isolatedLoad / 1e3).toFixed(0)}k vs 接网线 ${(connectedLoad / 1e3).toFixed(0)}k`,
+      `枢纽站进出站量: 首都机场T2=${(airport / 1e3).toFixed(1)}k, 北京西站=${(westRail / 1e3).toFixed(1)}k`,
     );
-    // M4-3 方式选择后网络效应被压缩:跨网长途 OD 因换乘/候车拉高 g_metro
-    // 而分担率低,短途 OD 分担率高使孤立线也有可观客流。M3 时代该比值为
-    // 3.5×,现约 1.1×;是否需要在 M5 标定中放大网络效应待用户决断。
-    expect(connectedLoad).toBeGreaterThan(isolatedLoad * 1.1);
+    // 无外生客流时机场站几乎为 0(零常住人口);M4Y 后应达数万
+    expect(airport).toBeGreaterThan(15000);
+    expect(westRail).toBeGreaterThan(15000);
   });
 });

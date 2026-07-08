@@ -19,3 +19,9 @@ export const ATTRACTION_TRIPS_POOL = 4_000_000;
 
 /** 地标客流分给这个半径内的车站 */
 export const LANDMARK_RADIUS_M = 700;
+
+/**
+ * 交通枢纽(机场/火车站)的外生客流分给最近车站的距离上限(公里)。
+ * 超过 = 枢纽未接入网络,不产生地铁客流。机场航站楼群摊得开,故取值较大。
+ */
+export const HUB_MAX_DIST_KM = 4;

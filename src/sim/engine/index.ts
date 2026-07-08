@@ -1,6 +1,7 @@
 import type { NetworkData } from "../../model/types";
 import type { DataGrid } from "../grids";
 import { assignOD } from "./assign";
+import { addHubOD } from "./hubs";
 import { gravityOD } from "./od";
 import { computeStationWeights, type Landmark } from "./weights";
 
@@ -36,6 +37,8 @@ export function runSimulation(
   const t0 = performance.now();
   const weights = computeStationWeights(net.stations, popGrid, attrGrid, landmarks);
   const W = gravityOD(net.stations, weights);
+  // 交通枢纽外生客流叠加到 W 上(机场/火车站),再走同一套分配(M4Y)
+  addHubOD(W, net.stations, weights, landmarks);
   const r = assignOD(net, W);
   return {
     stationIds: net.stations.map((s) => s.id),
