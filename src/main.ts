@@ -3,6 +3,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import "./style.css";
 
 import { Network } from "./model/network";
+import { buildGazetteer, type Gazetteer } from "./model/naming";
 import { attachAutosave, loadFromLocalStorage, saveNow } from "./persist/storage";
 import { installHeatLayer, toggleHeatLayer } from "./render/heatLayer";
 import { BASE_STYLE, BEIJING_CENTER } from "./render/mapStyle";
@@ -48,6 +49,20 @@ async function loadCityData(): Promise<{
     attrGrid: attr.status === "fulfilled" ? attr.value : null,
     landmarks: lm.status === "fulfilled" ? (lm.value.landmarks as Landmark[]) : [],
   };
+}
+
+/** 车站自动取名的地名索引:真实站名 + 地标 + OSM 片区名;任一来源缺失优雅降级 */
+async function loadGazetteer(landmarks: Landmark[]): Promise<Gazetteer> {
+  const base = `${import.meta.env.BASE_URL}data/beijing`;
+  const [places, starter] = await Promise.allSettled([
+    fetch(`${base}/placenames.json`).then((r) => (r.ok ? r.json() : { places: [] })),
+    fetch(`${base}/starter_network.json`).then((r) => (r.ok ? r.json() : { stations: [] })),
+  ]);
+  return buildGazetteer({
+    stations: starter.status === "fulfilled" ? starter.value.stations : [],
+    landmarks,
+    places: places.status === "fulfilled" ? places.value.places : [],
+  });
 }
 
 const map = new maplibregl.Map({
@@ -121,6 +136,7 @@ function pointSegDist(
 
 map.on("load", async () => {
   const { popGrid, attrGrid, landmarks } = await loadCityData();
+  const gazetteer = await loadGazetteer(landmarks);
   const sim = new SimClient(network);
   sim.init(popGrid, attrGrid, landmarks);
 
@@ -174,7 +190,12 @@ map.on("load", async () => {
     const hitStation = stationAt(e.point);
     const editingLineId = editor.editingLineId;
     if (editingLineId) {
-      const stationId = hitStation ?? network.addStation(e.lngLat.lng, e.lngLat.lat).id;
+      let stationId = hitStation;
+      if (!stationId) {
+        const existing = new Set(network.stations.map((s) => s.name));
+        const suggested = gazetteer.suggest(e.lngLat.lng, e.lngLat.lat, existing) ?? undefined;
+        stationId = network.addStation(e.lngLat.lng, e.lngLat.lat, suggested).id;
+      }
       network.appendStationToLine(editingLineId, stationId);
       return;
     }
@@ -205,6 +226,7 @@ map.on("load", async () => {
       sim,
       clock,
       animator,
+      gazetteer,
     };
   }
 });
