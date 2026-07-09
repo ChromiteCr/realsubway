@@ -1,7 +1,7 @@
 import { trainCapacity } from "../../config/rollingstock";
 import { AM_PROFILE, PM_PROFILE } from "../../config/simulation";
-import { haversineKm } from "../../model/geo";
 import type { LineData, NetworkData } from "../../model/types";
+import { polylineLengthKm, segmentCurves } from "../../render/lineGeometry";
 
 /** 自然小时 h 内的运营分钟数(首末班车切掉部分小时) */
 export function serviceMinutesInHour(line: LineData, h: number): number {
@@ -77,16 +77,18 @@ export function lineLoadFactor(line: LineData, segW: Float32Array): Float32Array
   return lf;
 }
 
-/** 线路单向长度(公里) */
+/**
+ * 线路单向轨道长度(公里)——沿渲染曲线的实际长度,比站间直线更接近真实轨道
+ * (直线低估轨道长,长区间尤甚;M5a2 据此修正长距离建造成本偏低)。
+ */
 export function lineLengthKm(net: NetworkData, line: LineData): number {
-  let lenKm = 0;
   const byId = new Map(net.stations.map((s) => [s.id, s]));
-  for (let k = 0; k + 1 < line.stationIds.length; k++) {
-    const a = byId.get(line.stationIds[k]!);
-    const b = byId.get(line.stationIds[k + 1]!);
-    if (a && b) lenKm += haversineKm(a, b);
-  }
-  return lenKm;
+  const pos = line.stationIds
+    .map((sid) => byId.get(sid))
+    .filter((s): s is (typeof net.stations)[number] => s !== undefined)
+    .map((s): [number, number] => [s.lng, s.lat]);
+  if (pos.length < 2) return 0;
+  return segmentCurves(pos).reduce((sum, c) => sum + polylineLengthKm(c), 0);
 }
 
 /** 全日列车公里(双向):Σ_h 运营分钟/间隔 × 线路长度 × 2 */

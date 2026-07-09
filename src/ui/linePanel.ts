@@ -11,6 +11,8 @@ interface PanelCallbacks {
   onImport: (net: NetworkClass) => void;
   /** 切换需求热力图;返回切换后的可见性,不可用时为 null */
   onToggleHeat: (() => boolean) | null;
+  /** 切换地标图层;返回切换后的可见性,不可用时为 null */
+  onToggleLandmarks: (() => boolean) | null;
 }
 
 /** 侧栏:全网指标 + 线路列表 + 新建/编辑/删除 + 导入导出 */
@@ -26,6 +28,42 @@ export function createLinePanel(
   /** 滑条拖动期间挂起重渲染,松手后补渲染 */
   let suppressRender = false;
   let pendingRender = false;
+
+  // 服务计划浮出面板:位于右侧面板的左侧,独立于线路列表 DOM
+  const flyout = document.createElement("aside");
+  flyout.id = "plan-flyout";
+  flyout.hidden = true;
+  container.parentElement?.appendChild(flyout);
+
+  const updateFlyout = () => {
+    const line = openPlanLineId ? network.getLine(openPlanLineId) : undefined;
+    if (!line) {
+      flyout.hidden = true;
+      flyout.innerHTML = "";
+      return;
+    }
+    flyout.hidden = false;
+    flyout.innerHTML = "";
+    const editorEl = buildServicePlanEditor(network, line);
+    // 只在拖动滑条时挂起重渲染;松手用 window 一次性监听
+    editorEl.addEventListener("pointerdown", (e) => {
+      const t = e.target as HTMLElement;
+      if (!(t instanceof HTMLInputElement) || t.type !== "range") return;
+      suppressRender = true;
+      window.addEventListener(
+        "pointerup",
+        () => {
+          suppressRender = false;
+          if (pendingRender) {
+            pendingRender = false;
+            render();
+          }
+        },
+        { once: true },
+      );
+    });
+    flyout.appendChild(editorEl);
+  };
 
   const render = () => {
     if (suppressRender) {
@@ -94,6 +132,7 @@ export function createLinePanel(
 
       const planBtn = document.createElement("button");
       planBtn.textContent = openPlanLineId === line.id ? "收起" : "计划";
+      if (openPlanLineId === line.id) planBtn.classList.add("primary");
       planBtn.addEventListener("click", () => {
         openPlanLineId = openPlanLineId === line.id ? null : line.id;
         render();
@@ -111,28 +150,6 @@ export function createLinePanel(
 
       item.append(dot, name, count, editBtn, planBtn, delBtn);
       list.appendChild(item);
-
-      if (openPlanLineId === line.id) {
-        const planEditor = buildServicePlanEditor(network, line);
-        // 只在拖动滑条时挂起重渲染;松手用 window 一次性监听,避免卡死
-        planEditor.addEventListener("pointerdown", (e) => {
-          const t = e.target as HTMLElement;
-          if (!(t instanceof HTMLInputElement) || t.type !== "range") return;
-          suppressRender = true;
-          window.addEventListener(
-            "pointerup",
-            () => {
-              suppressRender = false;
-              if (pendingRender) {
-                pendingRender = false;
-                render();
-              }
-            },
-            { once: true },
-          );
-        });
-        list.appendChild(planEditor);
-      }
     }
 
     const actions = document.createElement("div");
@@ -181,7 +198,18 @@ export function createLinePanel(
       actions.appendChild(heatBtn);
     }
 
+    if (callbacks.onToggleLandmarks) {
+      const lmBtn = document.createElement("button");
+      lmBtn.textContent = "地标";
+      lmBtn.addEventListener("click", () => {
+        const on = callbacks.onToggleLandmarks!();
+        lmBtn.classList.toggle("primary", on);
+      });
+      actions.appendChild(lmBtn);
+    }
+
     container.appendChild(actions);
+    updateFlyout();
   };
 
   network.subscribe(render);

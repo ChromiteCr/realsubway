@@ -14,17 +14,44 @@ function hhmmToMinutes(v: string): number {
 }
 
 /**
- * 服务计划编辑器:首末班车、运营时段逐小时间隔滑条、车型×编组。
+ * 服务计划编辑器(浮出面板内容,M5a2):
+ *   顶部左侧两行高线路标识 + 右侧线路信息(如「6节、B型编组」);
+ *   下方依次:首末班车 → 编组选择 → 逐小时间隔滑条。
  * 滑条拖动中只更新标签,release(change)才提交模型,避免拖动中被重渲染打断。
  */
 export function buildServicePlanEditor(network: Network, line: LineData): HTMLElement {
   const root = document.createElement("div");
-  root.className = "plan-editor";
+  root.className = "plan-flyout-content";
   const plan = line.servicePlan;
+
+  // —— 顶部:两行高线路标识 + 线路信息 ——
+  const header = document.createElement("div");
+  header.className = "plan-header";
+  const badge = document.createElement("div");
+  badge.className = "plan-badge";
+  badge.style.background = line.color;
+  badge.textContent = line.name;
+  const info = document.createElement("div");
+  info.className = "plan-info";
+  const infoName = document.createElement("div");
+  infoName.className = "plan-info-name";
+  infoName.textContent = line.name;
+  const infoStock = document.createElement("div");
+  infoStock.className = "plan-info-stock";
+  header.append(badge, info);
+  info.append(infoName, infoStock);
+  root.appendChild(header);
+
+  const body = document.createElement("div");
+  body.className = "plan-body";
+  root.appendChild(body);
 
   // —— 首末班车 ——
   const times = document.createElement("div");
   times.className = "plan-row";
+  const timesLabel = document.createElement("span");
+  timesLabel.className = "plan-row-label";
+  timesLabel.textContent = "首末班车";
   const firstInput = document.createElement("input");
   firstInput.type = "time";
   firstInput.value = minutesToHHMM(plan.firstTrainMin);
@@ -37,19 +64,20 @@ export function buildServicePlanEditor(network: Network, line: LineData): HTMLEl
   lastInput.addEventListener("change", () =>
     network.updateServicePlan(line.id, { lastTrainMin: hhmmToMinutes(lastInput.value) }),
   );
-  const timesLabel = document.createElement("span");
-  timesLabel.textContent = "首末班";
   times.append(timesLabel, firstInput, document.createTextNode("—"), lastInput);
-  root.appendChild(times);
+  body.appendChild(times);
 
-  // —— 车型 × 编组 ——
+  // —— 编组选择(车型 × 辆数)——
   const stockRow = document.createElement("div");
   stockRow.className = "plan-row";
+  const stockLabel = document.createElement("span");
+  stockLabel.className = "plan-row-label";
+  stockLabel.textContent = "编组";
   const typeSel = document.createElement("select");
   for (const t of ["A", "B", "C"] as CarType[]) {
     const opt = document.createElement("option");
     opt.value = t;
-    opt.textContent = `${t}型(宽${CAR_SPECS[t].widthM}m,定员${CAR_SPECS[t].capacity})`;
+    opt.textContent = `${t}型(宽${CAR_SPECS[t].widthM}m·定员${CAR_SPECS[t].capacity})`;
     opt.selected = plan.stock.type === t;
     typeSel.appendChild(opt);
   }
@@ -67,33 +95,31 @@ export function buildServicePlanEditor(network: Network, line: LineData): HTMLEl
     });
   typeSel.addEventListener("change", commitStock);
   carsSel.addEventListener("change", commitStock);
-  const stockLabel = document.createElement("span");
-  stockLabel.textContent = "车型";
   stockRow.append(stockLabel, typeSel, carsSel);
-  root.appendChild(stockRow);
+  body.appendChild(stockRow);
 
-  // —— 运力提示 ——
-  const capLine = document.createElement("div");
-  capLine.className = "cap-line";
-  const renderCap = () => {
-    const cap = trainCapacity(line.servicePlan.stock);
-    const h0 = Math.floor(line.servicePlan.firstTrainMin / 60);
-    const h1 = Math.min(23, Math.floor(line.servicePlan.lastTrainMin / 60));
-    let minHeadway = Infinity;
-    for (let h = h0; h <= h1; h++) {
-      minHeadway = Math.min(minHeadway, line.servicePlan.headwayByHour[h] ?? 6);
-    }
-    const peakCapacity = Math.round((60 / minHeadway) * cap);
-    capLine.textContent = `列车定员 ${cap} 人 · 高峰运力 ≈ ${peakCapacity.toLocaleString()} 人/h·向`;
-  };
-  renderCap();
-  root.appendChild(capLine);
-
-  // —— 逐小时间隔滑条(运营时段) ——
-  const hoursBox = document.createElement("div");
-  hoursBox.className = "hours-box";
+  // —— 信息行(节数/车型)与运力提示 ——
+  const cap = trainCapacity(plan.stock);
   const h0 = Math.floor(plan.firstTrainMin / 60);
   const h1 = Math.min(23, Math.floor(plan.lastTrainMin / 60));
+  let minHeadway = Infinity;
+  for (let h = h0; h <= h1; h++) minHeadway = Math.min(minHeadway, plan.headwayByHour[h] ?? 6);
+  const peakCapacity = Math.round((60 / minHeadway) * cap);
+  infoStock.textContent = `${plan.stock.cars}节、${plan.stock.type}型编组`;
+  const capLine = document.createElement("div");
+  capLine.className = "cap-line";
+  capLine.textContent = `列车定员 ${cap} 人 · 高峰运力 ≈ ${peakCapacity.toLocaleString()} 人/h·向`;
+  body.appendChild(capLine);
+
+  // —— 逐小时间隔滑条(运营时段)——
+  const hoursTitle = document.createElement("div");
+  hoursTitle.className = "plan-row-label";
+  hoursTitle.style.marginTop = "4px";
+  hoursTitle.textContent = "逐小时发车间隔";
+  body.appendChild(hoursTitle);
+
+  const hoursBox = document.createElement("div");
+  hoursBox.className = "hours-box";
   for (let h = h0; h <= h1; h++) {
     const row = document.createElement("div");
     row.className = "hour-row";
@@ -119,7 +145,7 @@ export function buildServicePlanEditor(network: Network, line: LineData): HTMLEl
     row.append(label, slider, value);
     hoursBox.appendChild(row);
   }
-  root.appendChild(hoursBox);
+  body.appendChild(hoursBox);
 
   return root;
 }

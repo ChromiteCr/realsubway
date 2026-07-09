@@ -4,8 +4,11 @@ import "./style.css";
 
 import { Network } from "./model/network";
 import { buildGazetteer, type Gazetteer } from "./model/naming";
+import type { StationData } from "./model/types";
 import { attachAutosave, loadFromLocalStorage, saveNow } from "./persist/storage";
 import { installHeatLayer, toggleHeatLayer } from "./render/heatLayer";
+import { installLandmarkLayer, toggleLandmarkLayer } from "./render/landmarkLayer";
+import { segmentCurves } from "./render/lineGeometry";
 import { BASE_STYLE, BEIJING_CENTER } from "./render/mapStyle";
 import {
   installNetworkLayers,
@@ -97,26 +100,35 @@ function stationAt(point: { x: number; y: number }): string | null {
 
 let popup: maplibregl.Popup | null = null;
 
-/** 点击点到线路区间的命中检测:返回该线上最近的区间号,或 null */
+/**
+ * 点击点到线路区间的命中检测:返回该线上最近的区间号,或 null。
+ * 沿曲线折线判距(与渲染一致);略放宽阈值以容纳 line-offset 的像素偏移。
+ */
 function segmentAt(
   point: { x: number; y: number },
   lineId: string,
-  maxDistPx = 8,
+  maxDistPx = 10,
 ): number | null {
   const line = network.getLine(lineId);
   if (!line) return null;
+  const pos = line.stationIds
+    .map((sid) => network.getStation(sid))
+    .filter((s): s is StationData => s !== undefined)
+    .map((s): [number, number] => [s.lng, s.lat]);
+  if (pos.length < 2) return null;
+  const curves = segmentCurves(pos);
   let best: number | null = null;
   let bestD = maxDistPx;
-  for (let k = 0; k + 1 < line.stationIds.length; k++) {
-    const a = network.getStation(line.stationIds[k]!);
-    const b = network.getStation(line.stationIds[k + 1]!);
-    if (!a || !b) continue;
-    const pa = map.project([a.lng, a.lat]);
-    const pb = map.project([b.lng, b.lat]);
-    const d = pointSegDist(point, pa, pb);
-    if (d < bestD) {
-      bestD = d;
-      best = k;
+  for (let k = 0; k < curves.length; k++) {
+    const curve = curves[k]!;
+    for (let i = 0; i + 1 < curve.length; i++) {
+      const pa = map.project([curve[i]![0]!, curve[i]![1]!]);
+      const pb = map.project([curve[i + 1]![0]!, curve[i + 1]![1]!]);
+      const d = pointSegDist(point, pa, pb);
+      if (d < bestD) {
+        bestD = d;
+        best = k;
+      }
     }
   }
   return best;
@@ -185,6 +197,7 @@ map.on("load", async () => {
   installNetworkLayers(map, network);
   network.subscribe(refreshLayers);
   if (popGrid) installHeatLayer(map, popGrid);
+  installLandmarkLayer(map, landmarks);
 
   // 列车动画:时刻表解析求值,时钟驱动
   installTrainLayer(map);
@@ -202,6 +215,7 @@ map.on("load", async () => {
       location.reload();
     },
     onToggleHeat: popGrid ? () => toggleHeatLayer(map) : null,
+    onToggleLandmarks: landmarks.length > 0 ? () => toggleLandmarkLayer(map) : null,
   });
 
   editor.subscribe(() => {

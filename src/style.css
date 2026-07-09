@@ -11,6 +11,7 @@ body,
 
 #app {
   display: flex;
+  position: relative;
   font-family: system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
   font-size: 14px;
   color: #222;
@@ -227,66 +228,131 @@ button.danger {
   line-height: 1.6;
 }
 
-.plan-editor {
-  margin: -2px 0 8px;
-  padding: 10px;
-  background: #fff;
-  border: 1px solid #e3e3e3;
-  border-radius: 8px;
+/* 服务计划浮出面板:位于右侧面板左侧 */
+#plan-flyout {
+  position: absolute;
+  top: 0;
+  right: 300px; /* 右侧面板宽度 */
+  height: 100%;
+  width: 280px;
+  background: #fafafa;
+  border-left: 1px solid #ddd;
+  box-shadow: -6px 0 16px rgba(0, 0, 0, 0.12);
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
   font-size: 12px;
 }
 
-.plan-editor .plan-row {
+.plan-flyout-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.plan-header {
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid #ddd;
+  align-items: stretch;
+}
+
+.plan-badge {
+  min-width: 52px;
+  min-height: 44px; /* 两行高 */
+  padding: 4px 8px;
+  border-radius: 8px;
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  line-height: 1.15;
+}
+
+.plan-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+.plan-info-name {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.plan-info-stock {
+  color: #666;
+  margin-top: 2px;
+}
+
+.plan-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px 14px;
+}
+
+.plan-body .plan-row {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
-.plan-editor .plan-row > span {
+.plan-row-label {
   color: #888;
-  width: 38px;
+  width: 66px;
   flex-shrink: 0;
 }
 
-.plan-editor input[type="time"],
-.plan-editor select {
+.plan-body input[type="time"],
+.plan-body select {
   font: inherit;
-  padding: 2px 4px;
+  padding: 3px 5px;
   border: 1px solid #ccc;
   border-radius: 5px;
   background: #fff;
+  min-width: 0;
 }
 
-.plan-editor .cap-line {
+.plan-body select {
+  flex: 1;
+}
+
+.plan-body .cap-line {
   color: #2f6fb3;
-  margin-bottom: 8px;
+  margin: -2px 0 10px;
 }
 
-.plan-editor .hours-box {
-  max-height: 220px;
-  overflow-y: auto;
+.plan-body .hours-box {
+  margin-top: 4px;
 }
 
-.plan-editor .hour-row {
+.plan-body .hour-row {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 2px;
+  margin-bottom: 3px;
 }
 
-.plan-editor .hour-label {
+.plan-body .hour-label {
   color: #888;
   width: 32px;
   flex-shrink: 0;
 }
 
-.plan-editor .hour-row input[type="range"] {
+.plan-body .hour-row input[type="range"] {
   flex: 1;
   min-width: 0;
 }
 
-.plan-editor .hour-value {
+.plan-body .hour-value {
   width: 34px;
   text-align: right;
   color: #333;

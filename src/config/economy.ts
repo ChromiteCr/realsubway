@@ -17,8 +17,13 @@ export const STATION_OPEX_PER_DAY = 30_000;
 // 车公里成本在 CAR_SPECS.opexPerCarKm(元/车公里)
 
 // —— 建设成本(用于按日摊销)——
-/** 地下线路造价(元/公里) */
-export const COST_PER_KM = 1_000_000_000; // 约 10 亿/km
+/**
+ * 地下线路造价(元/公里)。北京地下线均值约 10 亿,近年新线(16 号线全地下)
+ * 达 12 亿/km——取 12 亿更贴近现代造价;配合按曲线实际轨道长计价(见
+ * capacity.lineLengthKm),修正长距离区间偏低。
+ * 注:用户提出的参考数据未随消息传来,此处按公开真实数据取值,待补数据再对齐。
+ */
+export const COST_PER_KM = 1_200_000_000; // 12 亿/km(北京 16 号线档)
 /** 地下车站造价(元/座) */
 export const COST_PER_STATION = 300_000_000; // 约 3 亿/座
 /** 车辆购置价在 CAR_SPECS.pricePerCarWan(万元/辆)*/

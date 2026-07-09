@@ -1,4 +1,5 @@
 import type { Feature, FeatureCollection, Position } from "geojson";
+import { haversineKm } from "../model/geo";
 import type { Network } from "../model/network";
 import type { StationData } from "../model/types";
 
@@ -85,6 +86,34 @@ function centripetalSegment(
 }
 
 /**
+ * 站点序列 → 逐区段曲线折线。result[k] = 区段 k(站 k→k+1)的向心 Catmull-Rom
+ * 曲线折线(含两端点)。渲染、点击判定、列车运行三者共用,确保几何一致。
+ */
+export function segmentCurves(pos: Position[]): Position[][] {
+  const out: Position[][] = [];
+  for (let k = 0; k + 1 < pos.length; k++) {
+    const p0 = pos[k - 1] ?? pos[k]!;
+    const p1 = pos[k]!;
+    const p2 = pos[k + 1]!;
+    const p3 = pos[k + 2] ?? pos[k + 1]!;
+    out.push([p1, ...centripetalSegment(p0, p1, p2, p3, CURVE_SAMPLES)]);
+  }
+  return out;
+}
+
+/** 沿曲线折线的实际长度(公里),比直线更接近真实轨道长 */
+export function polylineLengthKm(points: Position[]): number {
+  let km = 0;
+  for (let i = 1; i < points.length; i++) {
+    km += haversineKm(
+      { lng: points[i - 1]![0]!, lat: points[i - 1]![1]! },
+      { lng: points[i]![0]!, lat: points[i]![1]! },
+    );
+  }
+  return km;
+}
+
+/**
  * 线网 → 逐区段曲线要素集合。每个区段一个 Feature:
  *   geometry = 该区段的向心 Catmull-Rom 曲线;
  *   properties = { id: 线路id, color, offset: 像素偏移 }。
@@ -99,14 +128,9 @@ export function buildLineFeatures(network: Network): FeatureCollection {
       .map((sid) => network.getStation(sid))
       .filter((s): s is StationData => s !== undefined);
     if (pts.length < 2) continue;
-    const pos = pts.map((s): Position => [s.lng, s.lat]);
+    const curves = segmentCurves(pts.map((s): Position => [s.lng, s.lat]));
 
-    for (let k = 0; k + 1 < pos.length; k++) {
-      const p0 = pos[k - 1] ?? pos[k]!;
-      const p1 = pos[k]!;
-      const p2 = pos[k + 1]!;
-      const p3 = pos[k + 2] ?? pos[k + 1]!;
-      const curve = [p1, ...centripetalSegment(p0, p1, p2, p3, CURVE_SAMPLES)];
+    for (let k = 0; k < curves.length; k++) {
       features.push({
         type: "Feature",
         properties: {
@@ -114,7 +138,7 @@ export function buildLineFeatures(network: Network): FeatureCollection {
           color: line.color,
           offset: offsetFor(line.id, line.stationIds[k]!, line.stationIds[k + 1]!, bundles),
         },
-        geometry: { type: "LineString", coordinates: curve },
+        geometry: { type: "LineString", coordinates: curves[k]! },
       });
     }
   }

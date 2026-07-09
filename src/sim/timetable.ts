@@ -1,13 +1,17 @@
 import { DWELL_MIN, TRAIN_SPEED_KMH } from "../config/simulation";
 import { haversineKm } from "../model/geo";
 import type { LineData, StationData } from "../model/types";
+import { segmentCurves } from "../render/lineGeometry";
 
-/** 单方向时刻表:站序坐标 + 各站累计时间 + 全日发车时刻 */
+/**
+ * 单方向时刻表:沿轨道曲线加密后的折线 + 每点累计时间 + 全日发车时刻。
+ * 列车沿曲线运行(与渲染同一几何);时段计时仍按站间直线距离(维持标定)。
+ */
 export interface DirectionTimetable {
-  /** [lng0,lat0,lng1,lat1,...] */
-  coords: Float64Array;
-  /** 到达第 k 站的累计分钟(发车时刻起算,k=0 为 0) */
-  cum: Float64Array;
+  /** 加密曲线点 [lng0,lat0,lng1,lat1,...] */
+  pts: Float64Array;
+  /** 每个曲线点的累计分钟(发车时刻起算,首点为 0) */
+  cumTime: Float64Array;
   /** 发车时刻(分钟,升序) */
   departures: Float64Array;
   tripDurationMin: number;
@@ -31,21 +35,41 @@ function buildDeparturesForDay(line: LineData): Float64Array {
 }
 
 function buildDirection(stations: StationData[], departures: Float64Array): DirectionTimetable {
-  const coords = new Float64Array(stations.length * 2);
-  const cum = new Float64Array(stations.length);
-  for (let k = 0; k < stations.length; k++) {
-    coords[k * 2] = stations[k]!.lng;
-    coords[k * 2 + 1] = stations[k]!.lat;
-    if (k > 0) {
-      const t = (haversineKm(stations[k - 1]!, stations[k]!) / TRAIN_SPEED_KMH) * 60 + DWELL_MIN;
-      cum[k] = cum[k - 1]! + t;
+  const pos = stations.map((s): [number, number] => [s.lng, s.lat]);
+  const curves = segmentCurves(pos);
+
+  const ptsArr: number[] = [pos[0]![0], pos[0]![1]];
+  const timeArr: number[] = [0];
+  let stationTime = 0;
+
+  for (let k = 0; k < curves.length; k++) {
+    // 该区段到站时间按站间直线距离(维持既有标定),位置沿曲线按弧长分配
+    const segTime =
+      (haversineKm(stations[k]!, stations[k + 1]!) / TRAIN_SPEED_KMH) * 60 + DWELL_MIN;
+    const curve = curves[k]!;
+    let arc = 0;
+    const arcAt: number[] = [0];
+    for (let i = 1; i < curve.length; i++) {
+      arc += haversineKm(
+        { lng: curve[i - 1]![0]!, lat: curve[i - 1]![1]! },
+        { lng: curve[i]![0]!, lat: curve[i]![1]! },
+      );
+      arcAt.push(arc);
     }
+    const total = arc || 1;
+    const t0 = stationTime;
+    for (let i = 1; i < curve.length; i++) {
+      ptsArr.push(curve[i]![0]!, curve[i]![1]!);
+      timeArr.push(t0 + segTime * (arcAt[i]! / total));
+    }
+    stationTime = t0 + segTime;
   }
+
   return {
-    coords,
-    cum,
+    pts: Float64Array.from(ptsArr),
+    cumTime: Float64Array.from(timeArr),
     departures,
-    tripDurationMin: cum[stations.length - 1] ?? 0,
+    tripDurationMin: stationTime,
   };
 }
 
@@ -74,24 +98,25 @@ export function buildLineTimetable(
  * 位置是时刻表的解析函数:二分找在途发车区间,再二分找所在区间插值。
  */
 export function trainPositionsAt(dir: DirectionTimetable, tMin: number, out: number[]): void {
-  const { departures, cum, coords, tripDurationMin } = dir;
+  const { departures, cumTime, pts, tripDurationMin } = dir;
   if (departures.length === 0 || tripDurationMin <= 0) return;
+  const lastPt = cumTime.length - 1;
   // 在途条件: dep <= t <= dep+duration → dep ∈ [t-duration, t]
-  let lo = lowerBound(departures, tMin - tripDurationMin);
+  const lo = lowerBound(departures, tMin - tripDurationMin);
   for (let i = lo; i < departures.length && departures[i]! <= tMin; i++) {
     const elapsed = tMin - departures[i]!;
-    // 找 k 使 cum[k] <= elapsed <= cum[k+1]
-    const k = upperBound(cum, elapsed) - 1;
-    if (k < 0) continue;
-    if (k >= cum.length - 1) {
-      out.push(coords[(cum.length - 1) * 2]!, coords[(cum.length - 1) * 2 + 1]!);
+    // 找曲线点 j 使 cumTime[j] <= elapsed <= cumTime[j+1]
+    const j = upperBound(cumTime, elapsed) - 1;
+    if (j < 0) continue;
+    if (j >= lastPt) {
+      out.push(pts[lastPt * 2]!, pts[lastPt * 2 + 1]!);
       continue;
     }
-    const segTime = cum[k + 1]! - cum[k]!;
-    const f = segTime > 0 ? (elapsed - cum[k]!) / segTime : 0;
+    const dt = cumTime[j + 1]! - cumTime[j]!;
+    const f = dt > 0 ? (elapsed - cumTime[j]!) / dt : 0;
     out.push(
-      coords[k * 2]! + (coords[(k + 1) * 2]! - coords[k * 2]!) * f,
-      coords[k * 2 + 1]! + (coords[(k + 1) * 2 + 1]! - coords[k * 2 + 1]!) * f,
+      pts[j * 2]! + (pts[(j + 1) * 2]! - pts[j * 2]!) * f,
+      pts[j * 2 + 1]! + (pts[(j + 1) * 2 + 1]! - pts[j * 2 + 1]!) * f,
     );
   }
 }
