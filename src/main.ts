@@ -158,8 +158,32 @@ map.on("load", async () => {
       .addTo(map);
   }
 
+  /** 编辑中线路的活动/闲置端点站(用于视觉标记) */
+  function currentEnds() {
+    const lid = editor.editingLineId;
+    const line = lid ? network.getLine(lid) : undefined;
+    if (!line || line.stationIds.length === 0) {
+      return { activeStationId: null, otherStationId: null };
+    }
+    const head = line.stationIds[0]!;
+    const tail = line.stationIds[line.stationIds.length - 1]!;
+    return editor.activeEnd === "head"
+      ? { activeStationId: head, otherStationId: tail }
+      : { activeStationId: tail, otherStationId: head };
+  }
+  function refreshLayers(): void {
+    updateNetworkLayers(map, network, currentEnds());
+  }
+
+  /** 在给定位置建站,自动取名(M4X) */
+  function createStationAt(lngLat: maplibregl.LngLat) {
+    const existing = new Set(network.stations.map((s) => s.name));
+    const suggested = gazetteer.suggest(lngLat.lng, lngLat.lat, existing) ?? undefined;
+    return network.addStation(lngLat.lng, lngLat.lat, suggested);
+  }
+
   installNetworkLayers(map, network);
-  network.subscribe(() => updateNetworkLayers(map, network));
+  network.subscribe(refreshLayers);
   if (popGrid) installHeatLayer(map, popGrid);
 
   // 列车动画:时刻表解析求值,时钟驱动
@@ -184,19 +208,76 @@ map.on("load", async () => {
     setEditingLineHighlight(map, editor.editingLineId);
     mapContainer.classList.toggle("editing", editor.editingLineId !== null);
     if (editor.editingLineId) popup?.remove();
+    refreshLayers();
   });
 
+  // —— 铺设模式的拖拽移动车站(M5a1)——
+  let drag: { stationId: string; moved: boolean } | null = null;
+  let suppressClick = false;
+
+  map.on("mousedown", (e: maplibregl.MapMouseEvent) => {
+    if (!editor.editingLineId) return; // 拖拽移动仅在铺设模式
+    const sid = stationAt(e.point);
+    if (!sid) return;
+    e.preventDefault(); // 阻止地图平移
+    drag = { stationId: sid, moved: false };
+  });
+  map.on("mousemove", (e: maplibregl.MapMouseEvent) => {
+    if (drag) {
+      drag.moved = true;
+      network.moveStation(drag.stationId, e.lngLat.lng, e.lngLat.lat);
+      return;
+    }
+    if (editor.editingLineId) {
+      map.getCanvas().style.cursor = stationAt(e.point) ? "move" : "crosshair";
+    } else {
+      map.getCanvas().style.cursor = stationAt(e.point) ? "pointer" : "";
+    }
+  });
+  map.on("mouseup", () => {
+    if (!drag) return;
+    if (drag.moved) suppressClick = true; // 拖动后抑制随之而来的 click
+    drag = null;
+  });
+
+  /** 铺设模式下处理点击:切换生长端 / 中插 / 端点延长 */
+  function handleEditingClick(
+    lineId: string,
+    hit: string | null,
+    lngLat: maplibregl.LngLat,
+    point: maplibregl.Point,
+  ): void {
+    const line = network.getLine(lineId);
+    if (!line) return;
+    const head = line.stationIds[0];
+    const tail = line.stationIds[line.stationIds.length - 1];
+    // 点线路端点站 → 切换生长端
+    if (hit && head !== tail && hit === head) return editor.setActiveEnd("head");
+    if (hit && head !== tail && hit === tail) return editor.setActiveEnd("tail");
+    // 点本线中部区段(未命中车站)→ 在该处插站
+    const seg = segmentAt(point, lineId);
+    if (!hit && seg !== null) {
+      const st = createStationAt(lngLat);
+      network.insertStationInLine(lineId, st.id, seg + 1);
+      return;
+    }
+    // 点到本线已有的中间站 → 忽略(避免自连)
+    if (hit && line.stationIds.includes(hit)) return;
+    // 否则在活动端生长(hit 为他线车站则成换乘)
+    const stationId = hit ?? createStationAt(lngLat).id;
+    if (editor.activeEnd === "head") network.prependStationToLine(lineId, stationId);
+    else network.appendStationToLine(lineId, stationId);
+  }
+
   map.on("click", (e: maplibregl.MapMouseEvent) => {
+    if (suppressClick) {
+      suppressClick = false;
+      return;
+    }
     const hitStation = stationAt(e.point);
     const editingLineId = editor.editingLineId;
     if (editingLineId) {
-      let stationId = hitStation;
-      if (!stationId) {
-        const existing = new Set(network.stations.map((s) => s.name));
-        const suggested = gazetteer.suggest(e.lngLat.lng, e.lngLat.lat, existing) ?? undefined;
-        stationId = network.addStation(e.lngLat.lng, e.lngLat.lat, suggested).id;
-      }
-      network.appendStationToLine(editingLineId, stationId);
+      handleEditingClick(editingLineId, hitStation, e.lngLat, e.point);
       return;
     }
     if (hitStation) {
@@ -211,10 +292,6 @@ map.on("load", async () => {
         return;
       }
     }
-  });
-  map.on("mousemove", (e) => {
-    if (editor.editingLineId) return;
-    map.getCanvas().style.cursor = stationAt(e.point) ? "pointer" : "";
   });
 
   if (import.meta.env.DEV) {

@@ -69,6 +69,30 @@ describe("Network 线路", () => {
     expect(net.getLine(l.id)?.name).toBe("亦庄线");
   });
 
+  it("反向延长:prepend 接到首端,拒绝相邻重复", () => {
+    const net = new Network();
+    const [a, b, c] = makeThreeStations(net);
+    const l = net.addLine();
+    net.appendStationToLine(l.id, b.id);
+    net.appendStationToLine(l.id, c.id);
+    expect(net.prependStationToLine(l.id, a.id)).toBe(true);
+    expect(net.getLine(l.id)?.stationIds).toEqual([a.id, b.id, c.id]);
+    expect(net.prependStationToLine(l.id, a.id)).toBe(false); // 已是首站
+  });
+
+  it("中插:insertStationInLine 在指定位置插入,拒绝相邻重复", () => {
+    const net = new Network();
+    const [a, b, c] = makeThreeStations(net);
+    const l = net.addLine();
+    net.appendStationToLine(l.id, a.id);
+    net.appendStationToLine(l.id, c.id);
+    expect(net.insertStationInLine(l.id, b.id, 1)).toBe(true);
+    expect(net.getLine(l.id)?.stationIds).toEqual([a.id, b.id, c.id]);
+    // index 钳制;插到已有相邻站被拒
+    expect(net.insertStationInLine(l.id, b.id, 1)).toBe(false);
+    expect(net.insertStationInLine(l.id, b.id, 2)).toBe(false);
+  });
+
   it("删线保留车站", () => {
     const net = new Network();
     const [a] = makeThreeStations(net);

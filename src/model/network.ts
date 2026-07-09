@@ -146,6 +146,30 @@ export class Network {
     return true;
   }
 
+  /** 把车站接到线路首端(反向延长);与当前首站相同时拒绝 */
+  prependStationToLine(lineId: string, stationId: string): boolean {
+    const line = this.lineMap.get(lineId);
+    if (!line || !this.stationMap.has(stationId)) return false;
+    if (line.stationIds[0] === stationId) return false;
+    line.stationIds.unshift(stationId);
+    this.emit();
+    return true;
+  }
+
+  /**
+   * 在线路第 index 个位置插入车站(0 = 首端之前,length = 末端之后)。
+   * 拒绝与相邻位置重复,避免连续重复站。返回是否成功。
+   */
+  insertStationInLine(lineId: string, stationId: string, index: number): boolean {
+    const line = this.lineMap.get(lineId);
+    if (!line || !this.stationMap.has(stationId)) return false;
+    const i = Math.max(0, Math.min(index, line.stationIds.length));
+    if (line.stationIds[i - 1] === stationId || line.stationIds[i] === stationId) return false;
+    line.stationIds.splice(i, 0, stationId);
+    this.emit();
+    return true;
+  }
+
   removeStationFromLine(lineId: string, stationId: string): void {
     const line = this.lineMap.get(lineId);
     if (!line) return;
