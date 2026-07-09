@@ -77,8 +77,8 @@ export function lineLoadFactor(line: LineData, segW: Float32Array): Float32Array
   return lf;
 }
 
-/** 全日列车公里(双向):Σ_h 运营分钟/间隔 × 线路长度 × 2 */
-export function lineTrainKm(net: NetworkData, line: LineData): number {
+/** 线路单向长度(公里) */
+export function lineLengthKm(net: NetworkData, line: LineData): number {
   let lenKm = 0;
   const byId = new Map(net.stations.map((s) => [s.id, s]));
   for (let k = 0; k + 1 < line.stationIds.length; k++) {
@@ -86,6 +86,12 @@ export function lineTrainKm(net: NetworkData, line: LineData): number {
     const b = byId.get(line.stationIds[k + 1]!);
     if (a && b) lenKm += haversineKm(a, b);
   }
+  return lenKm;
+}
+
+/** 全日列车公里(双向):Σ_h 运营分钟/间隔 × 线路长度 × 2 */
+export function lineTrainKm(net: NetworkData, line: LineData): number {
+  const lenKm = lineLengthKm(net, line);
   let departures = 0;
   for (let h = 0; h < 24; h++) {
     const minutes = serviceMinutesInHour(line, h);

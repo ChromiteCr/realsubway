@@ -81,6 +81,23 @@ describe("现网验证(真实数据)", () => {
     expect(top5).not.toContain("大兴机场线");
   });
 
+  it("M5:综合评分标定——真实现网 ≈ B", () => {
+    console.log(
+      `评分 rating=${res.rating.toFixed(1)} grade=${res.grade}`,
+    );
+    expect(res.grade).toBe("B");
+  });
+
+  it("M5:经济核算——票款/运营/摊销为正,利润有限", () => {
+    console.log(
+      `票款 ${(res.fareRevenue / 1e8).toFixed(2)}亿 运营 ${(res.operatingCost / 1e8).toFixed(2)}亿 ` +
+        `摊销 ${(res.amortization / 1e8).toFixed(2)}亿 利润 ${(res.profitPerDay / 1e8).toFixed(2)}亿/日`,
+    );
+    expect(res.fareRevenue).toBeGreaterThan(0);
+    expect(res.operatingCost).toBeGreaterThan(0);
+    expect(res.amortization).toBeGreaterThan(0);
+  });
+
   it("M4Y:交通枢纽在现网中被抬升——机场/火车站进出站量达枢纽量级", () => {
     const ridersOfName = (name: string): number => {
       const st = starter.stations.find((s) => s.name === name);

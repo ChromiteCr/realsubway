@@ -57,6 +57,50 @@ body,
   color: #2f6fb3;
 }
 
+.daily-report {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  color: #444;
+  font-size: 12px;
+}
+
+.daily-report .report-tile {
+  background: #fff;
+  border: 1px solid #e3e3e3;
+  border-radius: 8px;
+  padding: 6px 4px;
+  text-align: center;
+}
+
+.daily-report .report-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: #222;
+  line-height: 1.2;
+}
+
+.daily-report .report-value.pos {
+  color: #1f8a4c;
+}
+
+.daily-report .report-value.neg {
+  color: #c0392b;
+}
+
+.daily-report .report-label {
+  color: #999;
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.daily-report .report-sub {
+  grid-column: 1 / -1;
+  color: #888;
+  font-size: 11px;
+}
+
 .station-popup .riders-line {
   margin-bottom: 8px;
   font-weight: 600;

@@ -111,6 +111,29 @@ export class SimClient {
     return potential > 0 ? (this.result?.servedTrips ?? 0) / potential : 0;
   }
 
+  /** 三参数之利润:日利润(元,可负) */
+  profitPerDay(): number {
+    return this.result?.profitPerDay ?? 0;
+  }
+
+  /** 经济明细:票款/运营/摊销(元/日) */
+  economy(): { fare: number; opex: number; amortization: number } {
+    return {
+      fare: this.result?.fareRevenue ?? 0,
+      opex: this.result?.operatingCost ?? 0,
+      amortization: this.result?.amortization ?? 0,
+    };
+  }
+
+  /** 三参数之评分:字母等级与数值 */
+  grade(): string {
+    return this.result?.grade ?? "—";
+  }
+
+  rating(): number {
+    return this.result?.rating ?? 0;
+  }
+
   /** 区间最高满载率(>1 表示拥挤截断) */
   loadFactor(lineId: string, seg: number): number {
     return this.lfByLineId.get(lineId)?.[seg] ?? 0;

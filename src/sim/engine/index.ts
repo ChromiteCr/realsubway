@@ -1,8 +1,10 @@
 import type { NetworkData } from "../../model/types";
 import type { DataGrid } from "../grids";
 import { assignOD } from "./assign";
+import { computeEconomy } from "./economy";
 import { addHubOD } from "./hubs";
 import { gravityOD } from "./od";
+import { computeScore } from "./scoring";
 import { computeStationWeights, type Landmark } from "./weights";
 
 export type { Landmark } from "./weights";
@@ -25,6 +27,18 @@ export interface SimResult {
   servedTrips: number;
   /** 选择地铁但因超运力/停运未送达(含回程) */
   unservedTrips: number;
+  /** 日票款收入(元) */
+  fareRevenue: number;
+  /** 日运营成本(元) */
+  operatingCost: number;
+  /** 日建设摊销(元) */
+  amortization: number;
+  /** 日利润(元)= 票款 − 运营 − 摊销,可负 */
+  profitPerDay: number;
+  /** 综合数值评分 */
+  rating: number;
+  /** 字母等级 */
+  grade: string;
   computeMs: number;
 }
 
@@ -40,6 +54,13 @@ export function runSimulation(
   // 交通枢纽外生客流叠加到 W 上(机场/火车站),再走同一套分配(M4Y)
   addHubOD(W, net.stations, weights, landmarks);
   const r = assignOD(net, W);
+  const eco = computeEconomy(net, r.fareRevenue);
+  const score = computeScore(net, {
+    servedTrips: r.servedTrips,
+    metroDemandTrips: r.metroDemandTrips,
+    unservedTrips: r.unservedTrips,
+    loadFactors: r.loadFactors,
+  });
   return {
     stationIds: net.stations.map((s) => s.id),
     stationRiders: r.stationRiders,
@@ -50,6 +71,12 @@ export function runSimulation(
     metroDemandTrips: r.metroDemandTrips,
     servedTrips: r.servedTrips,
     unservedTrips: r.unservedTrips,
+    fareRevenue: eco.fareRevenue,
+    operatingCost: eco.operatingCost,
+    amortization: eco.amortization,
+    profitPerDay: eco.profitPerDay,
+    rating: score.rating,
+    grade: score.grade,
     computeMs: performance.now() - t0,
   };
 }

@@ -1,3 +1,4 @@
+import { fareForKm } from "../../config/economy";
 import {
   ALT_PENALTY_MIN,
   ALT_SPEED_KMH,
@@ -25,6 +26,8 @@ export interface AssignResult {
   servedTrips: number;
   /** 选择地铁但因超运力/停运未送达(含回程) */
   unservedTrips: number;
+  /** 日票款收入(元):每条送达腿按 OD 距离查里程票价 */
+  fareRevenue: number;
 }
 
 /**
@@ -94,6 +97,7 @@ export function assignOD(net: NetworkData, W: Float32Array): AssignResult {
   // —— 阶段二:按瓶颈截断,统计送达 ——
   let served = 0;
   let unserved = 0;
+  let fareRevenue = 0;
   const minOut = new Float64Array(24);
   const minRet = new Float64Array(24);
 
@@ -103,6 +107,8 @@ export function assignOD(net: NetworkData, W: Float32Array): AssignResult {
     for (let j = 0; j < n; j++) {
       const trips = metroTrips(i, j, dist[j]!);
       if (trips <= 0) continue;
+      // 票价按 OD 直线距离代理乘车里程(实际乘距略大,M5 已含在标定里)
+      const fare = fareForKm(haversineKm(stations[i]!, stations[j]!));
 
       minOut.fill(1);
       minRet.fill(1);
@@ -134,6 +140,7 @@ export function assignOD(net: NetworkData, W: Float32Array): AssignResult {
       const servedTrips = trips * servedFrac;
       served += servedTrips;
       unserved += trips * (2 - servedFrac);
+      fareRevenue += servedTrips * fare; // servedTrips = 送达腿数,每腿一票
       stationRiders[i]! += servedTrips;
       stationRiders[j]! += servedTrips;
     }
@@ -147,5 +154,6 @@ export function assignOD(net: NetworkData, W: Float32Array): AssignResult {
     metroDemandTrips: metroDemand,
     servedTrips: served,
     unservedTrips: unserved,
+    fareRevenue,
   };
 }

@@ -3,7 +3,7 @@ import { exportToFile, importFromFile } from "../persist/storage";
 import { Network as NetworkClass } from "../model/network";
 import type { SimClient } from "../sim/simClient";
 import type { EditorState } from "./editorState";
-import { fmtRiders } from "./format";
+import { buildDailyReport } from "./dailyReport";
 import { buildServicePlanEditor } from "./servicePlanEditor";
 
 interface PanelCallbacks {
@@ -39,21 +39,7 @@ export function createLinePanel(
     h1.textContent = "realsubway";
     const p = document.createElement("p");
     p.textContent = "北京 · 画出你的地铁线网";
-    const stats = document.createElement("div");
-    stats.className = "stats-line";
-    if (!sim.hasData) {
-      stats.textContent = "运输总量:暂无数据";
-    } else if (sim.state === "computing") {
-      stats.textContent = "运输总量:计算中…";
-    } else {
-      stats.textContent =
-        `运输总量 ≈ ${fmtRiders(sim.total())}/日 · ` +
-        `分担率 ${(sim.modeShare() * 100).toFixed(0)}%(${sim.computeMs.toFixed(0)}ms)`;
-      if (sim.unserved() > 1000) {
-        stats.textContent += ` · 未送达 ${fmtRiders(sim.unserved())}`;
-      }
-    }
-    header.append(h1, p, stats);
+    header.append(h1, p, buildDailyReport(sim));
     container.appendChild(header);
 
     if (editor.editingLineId) {
