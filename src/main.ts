@@ -20,8 +20,10 @@ import { DataGrid } from "./sim/grids";
 import { SimClient } from "./sim/simClient";
 import { installTrainLayer, TrainAnimator } from "./render/trainLayer";
 import { createClockControl, SimClock } from "./ui/clock";
+import { createEditHint } from "./ui/editHint";
 import { EditorState } from "./ui/editorState";
 import { createLinePanel } from "./ui/linePanel";
+import { createRankingPanel } from "./ui/rankingPanel";
 import { buildSegmentPopup } from "./ui/segmentPopup";
 import { buildStationPopup } from "./ui/stationPopup";
 
@@ -207,6 +209,8 @@ map.on("load", async () => {
   clock.start();
   createClockControl(mapContainer, clock);
   animator.render(clock.minutes);
+  createEditHint(mapContainer, network, editor);
+  createRankingPanel(mapContainer, network, sim);
 
   createLinePanel(panelContainer, network, editor, sim, {
     onImport: (imported) => {
@@ -273,14 +277,18 @@ map.on("load", async () => {
     if (!hit && seg !== null) {
       const st = createStationAt(lngLat);
       network.insertStationInLine(lineId, st.id, seg + 1);
+      editor.setLastLaid(st.id);
       return;
     }
     // 点到本线已有的中间站 → 忽略(避免自连)
     if (hit && line.stationIds.includes(hit)) return;
     // 否则在活动端生长(hit 为他线车站则成换乘)
     const stationId = hit ?? createStationAt(lngLat).id;
-    if (editor.activeEnd === "head") network.prependStationToLine(lineId, stationId);
-    else network.appendStationToLine(lineId, stationId);
+    const ok =
+      editor.activeEnd === "head"
+        ? network.prependStationToLine(lineId, stationId)
+        : network.appendStationToLine(lineId, stationId);
+    if (ok) editor.setLastLaid(stationId);
   }
 
   map.on("click", (e: maplibregl.MapMouseEvent) => {

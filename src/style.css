@@ -229,6 +229,10 @@ button.danger {
 }
 
 /* 服务计划浮出面板:位于右侧面板左侧 */
+#plan-flyout[hidden] {
+  display: none; /* 覆盖下方 display:flex,否则 hidden 不生效(白底残留) */
+}
+
 #plan-flyout {
   position: absolute;
   top: 0;
@@ -356,6 +360,122 @@ button.danger {
   width: 34px;
   text-align: right;
   color: #333;
+}
+
+/* 铺设提示浮层(左下,时钟之上) */
+.edit-hint {
+  position: absolute;
+  left: 10px;
+  bottom: 70px;
+  z-index: 5;
+  width: 220px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid #cfe3f5;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  font-size: 12px;
+}
+
+.edit-hint-title {
+  font-weight: 700;
+  color: #2f6fb3;
+  margin-bottom: 4px;
+}
+
+.edit-hint-row {
+  display: flex;
+  gap: 6px;
+  line-height: 1.5;
+}
+
+.edit-hint-key {
+  color: #999;
+  width: 56px;
+  flex-shrink: 0;
+}
+
+.edit-hint-tip {
+  margin-top: 5px;
+  padding-top: 5px;
+  border-top: 1px solid #eee;
+  color: #999;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+/* 运输量排行榜(右下) */
+.ranking-toggle {
+  position: absolute;
+  right: 10px;
+  bottom: 26px;
+  z-index: 5;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  font-size: 12px;
+}
+
+.ranking-panel {
+  position: absolute;
+  right: 10px;
+  bottom: 62px;
+  z-index: 5;
+  width: 240px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.16);
+  font-size: 12px;
+}
+
+.ranking-title {
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.ranking-empty {
+  color: #999;
+}
+
+.ranking-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+
+.ranking-rank {
+  width: 16px;
+  text-align: right;
+  color: #999;
+  font-variant-numeric: tabular-nums;
+}
+
+.ranking-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.ranking-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ranking-vol {
+  color: #2f6fb3;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .clock-control {

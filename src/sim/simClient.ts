@@ -139,6 +139,15 @@ export class SimClient {
     return this.lfByLineId.get(lineId)?.[seg] ?? 0;
   }
 
+  /** 线路运输量:全线各区间断面(双向)之和,作排行榜指标 */
+  lineVolume(lineId: string): number {
+    const loads = this.segByLineId.get(lineId);
+    if (!loads) return 0;
+    let sum = 0;
+    for (const v of loads) sum += v;
+    return sum;
+  }
+
   /** 区间日断面(单向;去程+回程,双向对称) */
   segDaily(lineId: string, seg: number): number {
     const loads = this.segByLineId.get(lineId);
