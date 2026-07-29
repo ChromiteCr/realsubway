@@ -404,6 +404,35 @@ button.danger {
   line-height: 1.4;
 }
 
+.edit-hint-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.edit-hint-btn {
+  flex: 1;
+  padding: 4px 0;
+  border: 1px solid #cfe3f5;
+  border-radius: 5px;
+  background: #f0f7ff;
+  color: #2f6fb3;
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.edit-hint-btn:hover:not(:disabled) {
+  background: #dceafa;
+  border-color: #a3c9ed;
+}
+
+.edit-hint-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 /* 运输量排行榜(右下) */
 .ranking-toggle {
   position: absolute;

@@ -2,8 +2,8 @@ import type { Network } from "../model/network";
 import type { EditorState } from "./editorState";
 
 /**
- * 铺设提示浮层(左下角,M5a3):仅在铺设模式显示当前铺设方向、
- * 起点/终点车站、最近铺设的车站。
+ * 铺设提示浮层(左下角):仅在铺设模式显示当前铺设方向、
+ * 起点/终点车站、最近铺设的车站,以及切换方向/形成环线按钮。
  */
 export function createEditHint(
   container: HTMLElement,
@@ -29,6 +29,8 @@ export function createEditHint(
     const ids = line.stationIds;
     const head = ids[0];
     const tail = ids[ids.length - 1];
+    const isRing = ids.length >= 3 && head !== undefined && head === tail;
+    const canRing = ids.length >= 2 && head !== tail;
     const grow =
       editor.activeEnd === "head" ? "首端生长（反向）" : "末端生长（正向）";
     root.innerHTML = "";
@@ -58,8 +60,36 @@ export function createEditHint(
 
     const tip = document.createElement("div");
     tip.className = "edit-hint-tip";
-    tip.textContent = "点端点站切换生长方向 · 拖动车站移位 · 点线中部插站(可点他线站换乘)";
+    tip.textContent = "拖动车站移位 · 点线中部插站(可点他线站换乘)";
     root.appendChild(tip);
+
+    // —— 操作按钮行 ——
+    const btnRow = document.createElement("div");
+    btnRow.className = "edit-hint-actions";
+
+    const dirBtn = document.createElement("button");
+    dirBtn.className = "edit-hint-btn";
+    dirBtn.textContent = "⇄ 切换方向";
+    dirBtn.title = "切换线路生长端（首端/末端）";
+    dirBtn.addEventListener("click", () => {
+      editor.setActiveEnd(editor.activeEnd === "head" ? "tail" : "head");
+    });
+    btnRow.appendChild(dirBtn);
+
+    const ringBtn = document.createElement("button");
+    ringBtn.className = "edit-hint-btn";
+    ringBtn.textContent = isRing ? "✓ 已闭环" : "↻ 形成环线";
+    ringBtn.title = isRing ? "线路已首尾相连" : "将终点与起点连接形成环线";
+    ringBtn.disabled = !canRing && !isRing;
+    if (canRing) {
+      ringBtn.addEventListener("click", () => {
+        const h = line.stationIds[0];
+        if (h) network.appendStationToLine(line.id, h);
+      });
+    }
+    btnRow.appendChild(ringBtn);
+
+    root.appendChild(btnRow);
   };
 
   network.subscribe(render);

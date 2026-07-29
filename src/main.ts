@@ -258,7 +258,7 @@ map.on("load", async () => {
     drag = null;
   });
 
-  /** 铺设模式下处理点击:切换生长端 / 中插(含换乘) / 端点延长(含换乘) */
+  /** 铺设模式下处理点击:中插(含换乘) / 端点延长(含换乘) */
   function handleEditingClick(
     lineId: string,
     hit: string | null,
@@ -267,13 +267,6 @@ map.on("load", async () => {
   ): void {
     const line = network.getLine(lineId);
     if (!line) return;
-    const head = line.stationIds[0];
-    const tail = line.stationIds[line.stationIds.length - 1];
-    // 点线路端点站且该站未接入其他线路 → 切换生长端
-    // 若端点站已是换乘站(多条线路经过),则不拦截,允许后续逻辑将其作为换乘站中插到其他线路
-    const endpointLines = (sid: string) => network.linesThroughStation(sid).length;
-    if (hit && head !== tail && hit === head && endpointLines(hit) <= 1) return editor.setActiveEnd("head");
-    if (hit && head !== tail && hit === tail && endpointLines(hit) <= 1) return editor.setActiveEnd("tail");
     // 点本线中部区段 → 在该处插站(含换乘)
     const seg = segmentAt(point, lineId);
     if (seg !== null) {
@@ -291,7 +284,7 @@ map.on("load", async () => {
         return;
       }
     }
-    // 点到本线已有的中间站 → 忽略(避免自连)
+    // 点到本线已有的站 → 忽略(避免自连)
     if (hit && line.stationIds.includes(hit)) return;
     // 否则在活动端生长(hit 为他线车站则成换乘,含他线端点站)
     const stationId = hit ?? createStationAt(lngLat).id;
