@@ -58,7 +58,7 @@ export function createEditHint(
 
     const tip = document.createElement("div");
     tip.className = "edit-hint-tip";
-    tip.textContent = "点端点站切换生长方向 · 拖动车站移位 · 点线中部插站";
+    tip.textContent = "点端点站切换生长方向 · 拖动车站移位 · 点线中部插站(可点他线站换乘)";
     root.appendChild(tip);
   };
 
