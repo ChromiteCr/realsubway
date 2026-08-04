@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { SCORE_REF } from "../../config/economy";
 import { Network } from "../../model/network";
 import type { NetworkData } from "../../model/types";
-import { computeScore, type ScoreInput, type ScoreKey } from "./scoring";
+import { computeScore, partScore, type ScoreInput, type ScoreKey } from "./scoring";
 
 /** n 站单线网络 */
 function lineNet(n: number): NetworkData {
@@ -111,6 +111,19 @@ describe("computeScore(M5a6 分项评分)", () => {
     );
     expect(s.parts.map((p) => p.key).sort()).toEqual(["intensity", "service", "volume"]);
     expect(s.parts.reduce((sum, p) => sum + p.weight, 0)).toBeCloseTo(1, 6);
+  });
+
+  it("γ 不对称(M5a8):基准处连续,低于基准掉得缓、高于基准涨得快", () => {
+    /** 对称 γ 的老曲线,用来比对 */
+    const sym = (ratio: number, g: number): number => {
+      const t = ratio ** g;
+      return (100 * t) / (t + 100 / 85 - 1);
+    };
+    expect(partScore(1, 1, 1.3)).toBeCloseTo(85, 6); // x=1 两侧都是锚点
+    expect(partScore(0.4, 1, 1.3)).toBeGreaterThan(sym(0.4, 1.3)); // 小网络宽松了
+    expect(partScore(2, 1, 1.3)).toBeGreaterThan(sym(2, 1.3)); // 超越现网多给分
+    expect(partScore(0.4, 1, 1.3)).toBeLessThan(85);
+    expect(partScore(2, 1, 1.3)).toBeGreaterThan(85);
   });
 
   it("空网络评分为 F,所有分项归零", () => {

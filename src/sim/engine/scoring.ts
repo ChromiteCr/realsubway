@@ -2,6 +2,7 @@ import {
   SCORE_ANCHOR,
   SCORE_CROWD_WEIGHT,
   SCORE_GAMMA,
+  SCORE_GAMMA_SPLIT,
   SCORE_REF,
   SCORE_WEIGHT,
   SERVICE_QUALITY_FLOOR,
@@ -73,7 +74,10 @@ const CURVE_C = 100 / SCORE_ANCHOR - 1;
 
 export function partScore(value: number, ref: number, gamma: number): number {
   if (!(value > 0) || !(ref > 0)) return 0;
-  const x = (value / ref) ** gamma;
+  const ratio = value / ref;
+  // 不到基准掉分缓一点,超过基准涨分快一点(M5a8);x=1 两侧都是 SCORE_ANCHOR
+  const g = ratio < 1 ? gamma - SCORE_GAMMA_SPLIT : gamma + SCORE_GAMMA_SPLIT;
+  const x = ratio ** g;
   return (100 * x) / (x + CURVE_C);
 }
 

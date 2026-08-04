@@ -78,6 +78,13 @@ export const SCORE_GAMMA = {
   economy: 0.8,
 } as const;
 
+/**
+ * γ 的不对称偏置(M5a8):不到基准的一侧用 γ−SPLIT(掉分更缓,别劝退小网络),
+ * 超过基准的一侧用 γ+SPLIT(涨分更快,把"超越现网"的努力兑现成分数)。
+ * 两侧在 x=1 处都等于 SCORE_ANCHOR,曲线连续。
+ */
+export const SCORE_GAMMA_SPLIT = 0.1;
+
 /** 分项权重(和为 1)。缺数据的分项(如无人口栅格)会被剔除并归一化 */
 export const SCORE_WEIGHT = {
   coverage: 0.28,
