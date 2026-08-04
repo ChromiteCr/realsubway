@@ -11,7 +11,7 @@
   "order": "row-major, row 0 = north",
   "kind": "population",
   "totalPopulation": 25529923,
-  "maxCell": 4668,
+  "maxCell": 3915,
   "source": "WorldPop chn_ppp_2020 (100m, unconstrained), windowed read",
-  "generated": "2026-07-03"
+  "generated": "2026-08-04"
 }

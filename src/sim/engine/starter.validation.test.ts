@@ -115,7 +115,9 @@ describe("现网验证(真实数据)", () => {
     expect(one.rating).toBeLessThan(three.rating);
     expect(three.rating).toBeLessThan(five.rating);
     expect(five.rating).toBeLessThan(res.rating);
-    // 核心症结:M5a6 前 3 条核心线能刷到 B+/A,现在必须低于 C+(<77)
+    // 核心症结:M5a6 前 3 条核心线能刷到 B+/A;现在标定在 C 档
+    // (M5a6 初版 γ=1.5 给到 C- 70.7,用户反馈偏严,M5a7 降到 γ=1.3)
+    expect(three.rating).toBeGreaterThan(70);
     expect(three.rating).toBeLessThan(77);
   });
 

@@ -27,6 +27,30 @@ FTP_URL = "/vsicurl/ftp://ftp.worldpop.org/GIS/Population/Global_2000_2020/2020/
 OUT_DIR = Path(__file__).resolve().parent.parent / "public" / "data" / "beijing"
 
 
+def overlap_weights(src_centers: np.ndarray, n_dst: int, dst_span: float) -> np.ndarray:
+    """一维守恒重采样权重 w[t, s] = 源像素 s 落进目标格 t 的长度占比。
+
+    源(WorldPop 100m ≈ 0.000833°)与目标格(0.8°/512 ≈ 0.0015625°)之比是
+    1.875 / 1.78 这样的非整数,若像早期版本那样"每个源像素按中心点归入唯一
+    目标格",就会周期性地出现只吃到 1 个源像素(而邻居吃到 2 个)的目标格,
+    在热力图上表现为格子状条纹(列周期 8、行周期约 4.6)。按重叠长度分摊,
+    每个目标格积分的是自己那块面积上的真实人口,条纹随之消失。
+
+    权重按源像素归一化(每列和为 1),因此总人口守恒;完全落在网格外的源
+    像素为全零列,只被网格切到一半的像素把整份人口留给相交的目标格。
+    """
+    step = abs(src_centers[1] - src_centers[0])
+    src_lo = src_centers - step / 2
+    src_hi = src_centers + step / 2
+    dst_edges = np.linspace(0.0, dst_span, n_dst + 1)
+    lo = np.maximum(src_lo[None, :], dst_edges[:-1, None])
+    hi = np.minimum(src_hi[None, :], dst_edges[1:, None])
+    w = np.clip(hi - lo, 0.0, None)
+    colsum = w.sum(axis=0)
+    np.divide(w, colsum, out=w, where=colsum > 0)
+    return w
+
+
 def main() -> None:
     if LOCAL_TIF.exists():
         source = str(LOCAL_TIF)
@@ -60,17 +84,20 @@ def main() -> None:
         cache.parent.mkdir(parents=True, exist_ok=True)
         np.savez_compressed(cache, data=data, lngs=lngs, lats=lats)
 
-    # 守恒聚合:每个源像素按中心点归入唯一目标格(GDAL 的 Resampling.sum
-    # 在窗口抽稀下会丢失大量总量,已实测 25.5M -> 7.6M,故手动聚合)
-    tcol = ((lngs - LNG_MIN) / (LNG_MAX - LNG_MIN) * WIDTH).astype(int).clip(0, WIDTH - 1)
-    trow = ((LAT_MAX - lats) / (LAT_MAX - LAT_MIN) * HEIGHT).astype(int).clip(0, HEIGHT - 1)
-    grid_f = np.zeros((HEIGHT, WIDTH), dtype=np.float64)
-    np.add.at(grid_f, (np.broadcast_to(trow[:, None], data.shape), np.broadcast_to(tcol[None, :], data.shape)), data)
+    # 守恒面积加权重采样(见 overlap_weights 的注释:按中心点归格会出条纹)
+    src_x = lngs - LNG_MIN
+    src_y = LAT_MAX - lats  # 向南为正,与 row 同向
+    w_col = overlap_weights(src_x, WIDTH, LNG_MAX - LNG_MIN)
+    w_row = overlap_weights(src_y, HEIGHT, LAT_MAX - LAT_MIN)
+    grid_f = w_row @ data.astype(np.float64) @ w_col.T
 
     total = float(grid_f.sum())
     peak = float(grid_f.max())
-    if abs(total - float(data.sum())) > 1:
-        raise SystemExit(f"聚合不守恒: {total} != {data.sum()}")
+    # 与网格无重叠的源像素(窗口比 bbox 多出的半像素边)不计入,其余必须守恒
+    inside = float((data.astype(np.float64) * (w_row.sum(0)[:, None] * w_col.sum(0)[None, :])).sum())
+    if abs(total - inside) > 1:
+        raise SystemExit(f"聚合不守恒: {total} != {inside}")
+    print(f"窗口边缘落在网格外的人口: {float(data.sum()) - inside:.0f} 人")
     if peak > 65535:
         raise SystemExit(f"单格人口 {peak:.0f} 超出 Uint16,需要缩放因子")
 
