@@ -1,13 +1,15 @@
 import type { NetworkData } from "../../model/types";
 import type { DataGrid } from "../grids";
 import { assignOD } from "./assign";
+import { computeCoverage } from "./coverage";
 import { computeEconomy } from "./economy";
 import { addHubOD } from "./hubs";
 import { gravityOD } from "./od";
-import { computeScore } from "./scoring";
+import { computeScore, type ScorePart } from "./scoring";
 import { computeStationWeights, type Landmark } from "./weights";
 
 export type { Landmark } from "./weights";
+export type { ScoreKey, ScorePart } from "./scoring";
 
 /** 可结构化克隆的模拟结果(worker → 主线程) */
 export interface SimResult {
@@ -39,6 +41,10 @@ export interface SimResult {
   rating: number;
   /** 字母等级 */
   grade: string;
+  /** 评分分项明细(M5a6) */
+  scoreParts: ScorePart[];
+  /** 集水区覆盖人口(人);无人口栅格时为 0 */
+  coveredPopulation: number;
   computeMs: number;
 }
 
@@ -55,11 +61,15 @@ export function runSimulation(
   addHubOD(W, net.stations, weights, landmarks);
   const r = assignOD(net, W);
   const eco = computeEconomy(net, r.fareRevenue);
+  const coverage = computeCoverage(net, popGrid);
   const score = computeScore(net, {
     servedTrips: r.servedTrips,
     metroDemandTrips: r.metroDemandTrips,
     unservedTrips: r.unservedTrips,
     loadFactors: r.loadFactors,
+    coverageRatio: coverage?.ratio ?? null,
+    fareRevenue: eco.fareRevenue,
+    totalCost: eco.operatingCost + eco.amortization,
   });
   return {
     stationIds: net.stations.map((s) => s.id),
@@ -77,6 +87,8 @@ export function runSimulation(
     profitPerDay: eco.profitPerDay,
     rating: score.rating,
     grade: score.grade,
+    scoreParts: score.parts,
+    coveredPopulation: coverage?.population ?? 0,
     computeMs: performance.now() - t0,
   };
 }

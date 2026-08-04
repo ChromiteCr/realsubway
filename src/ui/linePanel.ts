@@ -4,6 +4,7 @@ import { Network as NetworkClass } from "../model/network";
 import type { SimClient } from "../sim/simClient";
 import type { EditorState } from "./editorState";
 import { buildDailyReport } from "./dailyReport";
+import { SCORE_CLOSE_EVENT } from "./scorePanel";
 import { buildServicePlanEditor } from "./servicePlanEditor";
 
 interface PanelCallbacks {
@@ -44,6 +45,8 @@ export function createLinePanel(
     }
     flyout.hidden = false;
     flyout.innerHTML = "";
+    // 两块浮层占同一片位置,计划面板一开就收起分项评分(M5a6)
+    document.dispatchEvent(new CustomEvent(SCORE_CLOSE_EVENT));
     const editorEl = buildServicePlanEditor(network, line);
     // 只在拖动滑条时挂起重渲染;松手用 window 一次性监听
     editorEl.addEventListener("pointerdown", (e) => {

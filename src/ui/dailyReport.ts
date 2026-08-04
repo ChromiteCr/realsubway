@@ -1,5 +1,6 @@
 import type { SimClient } from "../sim/simClient";
 import { fmtRiders } from "./format";
+import { SCORE_DETAIL_EVENT } from "./scorePanel";
 
 /** 金额(元/日)→ "±X.X亿/万" */
 function fmtMoney(yuan: number): string {
@@ -24,7 +25,7 @@ export function buildDailyReport(sim: SimClient): HTMLElement {
     return root;
   }
 
-  const tiles: { label: string; value: string; cls?: string; title?: string }[] = [
+  const tiles: { label: string; value: string; cls?: string; title?: string; detail?: boolean }[] = [
     { label: "运输总量", value: `${fmtRiders(sim.total())}/日` },
     {
       label: "日利润",
@@ -32,13 +33,25 @@ export function buildDailyReport(sim: SimClient): HTMLElement {
       cls: sim.profitPerDay() >= 0 ? "pos" : "neg",
       title: `票款 ${fmtMoney(sim.economy().fare)} − 运营 ${fmtMoney(sim.economy().opex)} − 摊销 ${fmtMoney(sim.economy().amortization)}`,
     },
-    { label: "综合评分", value: sim.grade(), title: `数值 ${sim.rating().toFixed(1)}` },
+    {
+      label: "综合评分",
+      value: sim.grade(),
+      title: `数值 ${sim.rating().toFixed(1)} · 点击看分项评分`,
+      detail: true,
+    },
   ];
 
   for (const t of tiles) {
     const tile = document.createElement("div");
     tile.className = "report-tile";
     if (t.title) tile.title = t.title;
+    if (t.detail) {
+      // 点评分磁贴 → 唤起分项评分面板(M5a6)
+      tile.classList.add("clickable");
+      tile.addEventListener("click", () => {
+        document.dispatchEvent(new CustomEvent(SCORE_DETAIL_EVENT));
+      });
+    }
     const val = document.createElement("div");
     val.className = "report-value" + (t.cls ? ` ${t.cls}` : "");
     val.textContent = t.value;

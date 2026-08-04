@@ -83,9 +83,40 @@ describe("现网验证(真实数据)", () => {
 
   it("M5:综合评分标定——真实现网 ≈ B", () => {
     console.log(
-      `评分 rating=${res.rating.toFixed(1)} grade=${res.grade}`,
+      `评分 rating=${res.rating.toFixed(1)} grade=${res.grade} · ` +
+        res.scoreParts.map((p) => `${p.key}=${p.score.toFixed(0)}`).join(" ") +
+        ` · 覆盖人口 ${(res.coveredPopulation / 1e6).toFixed(2)}M`,
     );
     expect(res.grade).toBe("B");
+    // 每个分项都以现网为基准,所以现网各项都该落在 85 附近(服务质量项基准另取 0.9)
+    for (const p of res.scoreParts) {
+      expect(p.score).toBeGreaterThan(80);
+      expect(p.score).toBeLessThan(92);
+    }
+  });
+
+  it("M5a6:难度梯度——线越少评分越低,3 条核心线远不及现网", () => {
+    const subset = (names: string[]): NetworkData => {
+      const lines = starter.lines.filter((l) => names.includes(l.name));
+      const keep = new Set(lines.flatMap((l) => l.stationIds));
+      return { version: 1, stations: starter.stations.filter((s) => keep.has(s.id)), lines };
+    };
+    const rate = (names: string[]): { rating: number; grade: string } => {
+      const r = runSimulation(subset(names), popGrid, attrGrid, landmarks);
+      return { rating: r.rating, grade: r.grade };
+    };
+    const one = rate(["10号线"]);
+    const three = rate(["10号线", "1号线", "6号线"]);
+    const five = rate(["10号线", "1号线", "6号线", "8号线", "4号线/大兴线"]);
+    console.log(
+      `单线=${one.rating.toFixed(1)}(${one.grade}) 3线=${three.rating.toFixed(1)}(${three.grade}) ` +
+        `5线=${five.rating.toFixed(1)}(${five.grade}) 现网=${res.rating.toFixed(1)}(${res.grade})`,
+    );
+    expect(one.rating).toBeLessThan(three.rating);
+    expect(three.rating).toBeLessThan(five.rating);
+    expect(five.rating).toBeLessThan(res.rating);
+    // 核心症结:M5a6 前 3 条核心线能刷到 B+/A,现在必须低于 C+(<77)
+    expect(three.rating).toBeLessThan(77);
   });
 
   it("M5:经济核算——票款/运营/摊销为正,利润有限", () => {

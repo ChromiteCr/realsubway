@@ -1,6 +1,6 @@
 import { AM_PROFILE, PM_PROFILE } from "../config/simulation";
 import type { Network } from "../model/network";
-import type { Landmark, SimResult } from "./engine";
+import type { Landmark, ScorePart, SimResult } from "./engine";
 import type { DataGrid } from "./grids";
 
 type Listener = () => void;
@@ -132,6 +132,16 @@ export class SimClient {
 
   rating(): number {
     return this.result?.rating ?? 0;
+  }
+
+  /** 评分分项明细(M5a6):人口覆盖/运输规模/运输效率/服务质量/经济效益 */
+  scoreParts(): ScorePart[] {
+    return this.result?.scoreParts ?? [];
+  }
+
+  /** 集水区覆盖的常住人口 */
+  coveredPopulation(): number {
+    return this.result?.coveredPopulation ?? 0;
   }
 
   /** 区间最高满载率(>1 表示拥挤截断) */

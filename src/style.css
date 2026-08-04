@@ -90,6 +90,15 @@ body,
   color: #c0392b;
 }
 
+.daily-report .report-tile.clickable {
+  cursor: pointer;
+}
+
+.daily-report .report-tile.clickable:hover {
+  border-color: #4a90d9;
+  background: #f5faff;
+}
+
 .daily-report .report-label {
   color: #999;
   font-size: 11px;
@@ -431,6 +440,124 @@ button.danger {
 .edit-hint-btn:disabled {
   opacity: 0.45;
   cursor: default;
+}
+
+/* 分项评分面板(右上,点评分磁贴唤起) */
+.score-panel {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 7;
+  width: 296px;
+  max-height: calc(100% - 20px);
+  overflow-y: auto;
+  padding: 10px 12px 12px;
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
+  font-size: 12px;
+}
+
+.score-header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid #eee;
+}
+
+.score-title {
+  flex: 1;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.score-grade {
+  font-size: 22px;
+  font-weight: 800;
+  color: #2f6fb3;
+  line-height: 1;
+}
+
+.score-number {
+  color: #999;
+}
+
+.score-header button {
+  align-self: center;
+  padding: 2px 6px;
+}
+
+.score-empty {
+  color: #999;
+  padding: 6px 0;
+}
+
+.score-row {
+  margin-bottom: 9px;
+}
+
+.score-row-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.score-row-label {
+  flex: 1;
+  font-weight: 600;
+}
+
+.score-row-weight {
+  color: #aaa;
+  font-size: 11px;
+}
+
+.score-row-score {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  min-width: 22px;
+  text-align: right;
+}
+
+.score-bar {
+  position: relative;
+  height: 7px;
+  margin: 3px 0 2px;
+  border-radius: 4px;
+  background: #eee;
+  overflow: hidden;
+}
+
+.score-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+}
+
+/* 现网基准刻度(85 分处) */
+.score-bar-mark {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 85%;
+  width: 1px;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.score-row-detail {
+  color: #888;
+  font-size: 11px;
+}
+
+.score-foot {
+  margin-top: 8px;
+  padding-top: 7px;
+  border-top: 1px solid #eee;
+  color: #999;
+  font-size: 11px;
+  line-height: 1.5;
 }
 
 /* 运输量排行榜(右下) */

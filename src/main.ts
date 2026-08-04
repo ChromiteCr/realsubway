@@ -24,6 +24,7 @@ import { createEditHint } from "./ui/editHint";
 import { EditorState } from "./ui/editorState";
 import { createLinePanel } from "./ui/linePanel";
 import { createRankingPanel } from "./ui/rankingPanel";
+import { createScorePanel } from "./ui/scorePanel";
 import { buildSegmentPopup } from "./ui/segmentPopup";
 import { buildStationPopup } from "./ui/stationPopup";
 
@@ -211,6 +212,7 @@ map.on("load", async () => {
   animator.render(clock.minutes);
   createEditHint(mapContainer, network, editor);
   createRankingPanel(mapContainer, network, sim);
+  createScorePanel(mapContainer, sim);
 
   createLinePanel(panelContainer, network, editor, sim, {
     onImport: (imported) => {
